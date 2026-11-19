@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 對話紀錄智慧分析平台</title>
+    
+    <!-- 載入 Google Fonts (Inter 與 思源黑體 Noto Sans TC) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 載入 Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 載入 Marked.js (CDN) 用於渲染 Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Tailwind 自訂字體設定 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '"Noto Sans TC"', 'system-ui', '-apple-system', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* =========================================================
+           自訂樣式：Markdown 報告排版、捲軸美化與列印樣式
+           ========================================================= */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        /* Markdown 渲染區塊專用排版樣式 */
+        .markdown-body {
+            color: #334155;
+            line-height: 1.75;
+            font-size: 0.95rem;
+        }
+        .markdown-body h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f172a;
+            border-bottom: 2px solid #0d9488;
+            padding-bottom: 0.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .markdown-body h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0f766e;
+            background-color: #f0fdfa;
+            border-left: 4px solid #0d9488;
+            padding: 0.4rem 0.75rem;
+            border-radius: 0 0.375rem 0.375rem 0;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .markdown-body h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .markdown-body p {
+            margin-bottom: 0.85rem;
+        }
+        .markdown-body ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .markdown-body ol {
+            list-style-type: decimal;
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .markdown-body li {
+            margin-bottom: 0.4rem;
+        }
+        .markdown-body li > ul {
+            margin-top: 0.35rem;
+            margin-bottom: 0.35rem;
+            list-style-type: circle;
+        }
+        .markdown-body strong {
+            color: #0f172a;
+            font-weight: 600;
+        }
+        .markdown-body blockquote {
+            border-left: 4px solid #94a3b8;
+            background-color: #f8fafc;
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            color: #475569;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+        .markdown-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.25rem 0;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            display: block;
+        }
+        @media (min-width: 640px) {
+            .markdown-body table {
+                display: table;
+            }
+        }
+        .markdown-body th {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-weight: 600;
+            text-align: left;
+            padding: 0.65rem 0.85rem;
+            border: 1px solid #cbd5e1;
+        }
+        .markdown-body td {
+            padding: 0.65rem 0.85rem;
+            border: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+        .markdown-body tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        .markdown-body code {
+            background-color: #f1f5f9;
+            color: #0f766e;
+            padding: 0.15rem 0.35rem;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+        }
+        .markdown-body hr {
+            border: 0;
+            border-top: 1px solid #e2e8f0;
+            margin: 1.5rem 0;
+        }
+
+        /* 細緻捲軸樣式 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* 拖曳上傳區啟用狀態 */
+        .dropzone-active {
+            border-color: #0d9488 !important;
+            background-color: #f0fdfa !important;
+        }
+
+        /* 列印 / 另存 PDF 專用樣式：只列印分析結果報告 */
+        @media print {
+            body {
+                background-color: #ffffff !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            #workspace-view {
+                display: block !important;
+            }
+            #workspace-main {
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+            }
+            #output-panel {
+                border: none !important;
+                box-shadow: none !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            #preview-container {
+                overflow: visible !important;
+                padding: 0 !important;
+            }
+            .markdown-body h2 {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-teal-100 selection:text-teal-900">
+
+    <!-- =========================================================
+         Toast 提示訊息容器 (取代 alert，非阻斷式通知)
+         ========================================================= -->
+    <div id="toast-container" class="no-print fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] pointer-events-none"></div>
+
+    <!-- =========================================================
+         API 與系統設定彈窗 (Modal)
+         ========================================================= -->
+    <div id="config-modal" class="no-print hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-fade-in">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800">系統 API 與表單設定</h3>
+                </div>
+                <button type="button" onclick="closeConfigModal()" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                    此處設定會暫存於瀏覽器的 <code class="text-teal-700 font-medium">localStorage</code> 中，方便快速測試串接。正式部署至 GitHub Pages 時，建議直接修改 <code class="text-teal-700 font-medium">index.html</code> 頂部的 <code class="text-teal-700 font-medium">CONFIG</code> 物件。
+                </p>
+                <div>
+                    <label for="input-gas-url" class="block text-sm font-semibold text-slate-700 mb-1.5">Google Apps Script (GAS) Web App URL</label>
+                    <input type="url" id="input-gas-url" placeholder="https://script.google.com/macros/s/xxxx/exec"
+                        class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition">
+                </div>
+                <div>
+                    <label for="input-form-url" class="block text-sm font-semibold text-slate-700 mb-1.5">Google 表單權限申請連結</label>
+                    <input type="url" id="input-form-url" placeholder="https://docs.google.com/forms/d/e/xxxx/viewform"
+                        class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition">
+                </div>
+            </div>
+            <div class="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-100">
+                <button type="button" onclick="resetConfigToDefault()" class="text-xs font-medium text-slate-500 hover:text-rose-600 transition px-2 py-1.5 rounded-lg">
+                    恢復預設值
+                </button>
+                <div class="flex items-center gap-2.5">
+                    <button type="button" onclick="closeConfigModal()" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
+                        取消
+                    </button>
+                    <button type="button" onclick="saveConfigFromModal()" class="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-xl hover:bg-teal-700 shadow-sm transition">
+                        儲存設定
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================
+         畫面一：權限驗證登入頁 (Login View)
+         ========================================================= -->
+    <section id="login-view" class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 bg-gradient-to-br from-slate-50 via-teal-50/30 to-slate-100">
+        <div class="w-full max-w-md">
+            <!-- 登入主卡片 -->
+            <div class="bg-white rounded-2xl shadow-lg shadow-slate-200/70 border border-slate-200/80 overflow-hidden">
+                <!-- 卡片頂部品牌識別區 -->
+                <div class="px-6 pt-8 pb-6 text-center bg-gradient-to-b from-teal-50/60 to-white border-b border-slate-100 relative">
+                    <!-- 右上角快捷設定按鈕 -->
+                    <button type="button" onclick="openConfigModal()" title="設定 API 與表單網址"
+                        class="absolute top-4 right-4 p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </button>
+
+                    <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-md shadow-teal-600/20">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">AI 對話紀錄智慧分析平台</h1>
+                    <p class="mt-1.5 text-sm text-slate-500">串接 Google AI Studio 與專屬權限控管工作台</p>
+                </div>
+
+                <!-- 登入表單區 -->
+                <form id="login-form" onsubmit="handleLogin(event)" class="p-6 sm:p-8 space-y-5">
+                    <div>
+                        <label for="login-email" class="block text-sm font-semibold text-slate-700 mb-1.5">帳號 (Email)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
+                                </svg>
+                            </span>
+                            <input type="email" id="login-email" required autocomplete="email" placeholder="name@example.com"
+                                class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50/50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="login-password" class="block text-sm font-semibold text-slate-700 mb-1.5">密碼 / 授權碼</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                            </span>
+                            <input type="password" id="login-password" required autocomplete="current-password" placeholder="請輸入您的密碼或授權碼"
+                                class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50/50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition">
+                        </div>
+                    </div>
+
+                    <!-- 登入按鈕 -->
+                    <button type="submit" id="btn-login-submit"
+                        class="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 active:scale-[0.99] text-white font-semibold text-sm rounded-xl shadow-sm shadow-teal-600/20 flex items-center justify-center gap-2 transition disabled:opacity-60 disabled:cursor-not-allowed">
+                        <span id="login-btn-text">登入系統</span>
+                        <svg id="login-spinner" class="hidden animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+
+                    <!-- 分隔線 -->
+                    <div class="relative flex items-center py-1">
+                        <div class="flex-grow border-t border-slate-200"></div>
+                        <span class="flex-shrink mx-3 text-xs text-slate-400">或</span>
+                        <div class="flex-grow border-t border-slate-200"></div>
+                    </div>
+
+                    <!-- 離線展示模式按鈕 -->
+                    <button type="button" onclick="enterDemoMode()"
+                        class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-medium text-sm rounded-xl border border-slate-200 flex items-center justify-center gap-2 transition">
+                        <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        進入離線展示模式 (Demo)
+                    </button>
+
+                    <!-- Google 表單權限申請連結 -->
+                    <div class="text-center pt-1">
+                        <a id="google-form-link" href="#" target="_blank" rel="noopener noreferrer" onclick="handleFormLinkClick(event)"
+                            class="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:text-teal-800 hover:underline transition">
+                            <span>尚未取得權限？前往 Google 表單申請開通</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 底部個資保護提醒 -->
+            <div class="mt-5 px-4 py-3 bg-amber-50/90 border border-amber-200/80 rounded-xl flex items-start gap-2.5 text-xs text-amber-800 leading-relaxed">
+                <svg class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <p>
+                    <strong>個資保護提醒：</strong>上傳醫療衛教或訪談逐字稿進行 AI 分析前，請務必先移除真實姓名、身分證字號、病歷號、電話等個人敏感識別資訊，以維護隱私安全。
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================
+         畫面二：對話分析主工作台 (Workspace View)
+         ========================================================= -->
+    <section id="workspace-view" class="hidden flex-1 flex flex-col min-h-screen">
+        <!-- 頂部導覽列 (Header) -->
+        <header class="no-print sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+                <!-- 左側：平台識別 -->
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="truncate">
+                        <h1 class="text-base sm:text-lg font-bold text-slate-800 truncate">AI 對話紀錄智慧分析平台</h1>
+                    </div>
+                </div>
+
+                <!-- 右側：使用者狀態與操作按鈕 -->
+                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    <!-- 登入者 / Demo 標籤 -->
+                    <div id="user-badge" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                        <span id="user-status-dot" class="w-2 h-2 rounded-full bg-teal-500"></span>
+                        <span id="user-display-name" class="max-w-[160px] truncate">user@example.com</span>
+                    </div>
+
+                    <!-- API 設定按鈕 -->
+                    <button type="button" onclick="openConfigModal()"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition">
+                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        <span class="hidden sm:inline">API 設定</span>
+                    </button>
+
+                    <!-- 登出按鈕 -->
+                    <button type="button" onclick="handleLogout()"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 rounded-xl transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span>登出</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要工作區：桌機雙欄 (5:7)、手機單欄 -->
+        <main id="workspace-main" class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- =================================================
+                 左側面板：對話輸入與分析設定區 (佔 5 欄)
+                 ================================================= -->
+            <div class="no-print lg:col-span-5 flex flex-col gap-5 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-5 bg-teal-600 rounded-full"></span>
+                        <h2 class="text-base font-bold text-slate-800">對話輸入與設定</h2>
+                    </div>
+                    <!-- 手機版顯示目前帳號標籤 -->
+                    <span id="mobile-user-badge" class="sm:hidden text-xs font-medium px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200"></span>
+                </div>
+
+                <!-- 1. 分析模板選擇 -->
+                <div>
+                    <label for="template-select" class="block text-sm font-semibold text-slate-700 mb-1.5">選擇分析模板</label>
+                    <select id="template-select" onchange="handleTemplateChange()"
+                        class="w-full px-3.5 py-2.5 text-sm bg-slate-50/70 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition cursor-pointer">
+                        <option value="health_edu">1. 衛教與門診追蹤紀錄（用藥、血糖、飲食、症狀與建議）</option>
+                        <option value="meeting">2. 一般會議紀錄摘要（會議重點、決議事項、待辦清單）</option>
+                        <option value="cs_consult">3. 客服／諮詢對話分析（客戶需求、痛點、處理結果與追蹤）</option>
+                        <option value="custom">4. 自訂分析指令（自行撰寫 Prompt）</option>
+                    </select>
+                </div>
+
+                <!-- 動態展開：自訂分析指令輸入框 -->
+                <div id="custom-prompt-wrapper" class="hidden">
+                    <label for="custom-prompt-input" class="block text-sm font-semibold text-slate-700 mb-1.5">自訂分析指令 (System Prompt)</label>
+                    <textarea id="custom-prompt-input" rows="3"
+                        placeholder="請輸入您希望 AI 如何整理這段對話，例如：請用條列式整理出雙方達成的共識、待確認事項，並以表格列出時間軸..."
+                        class="w-full px-3.5 py-2.5 text-sm bg-teal-50/30 border border-teal-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition resize-y"></textarea>
+                </div>
+
+                <!-- 2. .txt 檔案拖曳 / 點擊上傳區 -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">上傳對話文字檔 (.txt)</label>
+                    <div id="dropzone" onclick="document.getElementById('file-input').click()"
+                        class="border-2 border-dashed border-slate-300 hover:border-teal-500 hover:bg-teal-50/30 rounded-xl p-4 text-center cursor-pointer transition group">
+                        <input type="file" id="file-input" accept=".txt,text/plain" class="hidden" onchange="handleFileSelect(event)">
+                        <div class="flex flex-col items-center justify-center gap-1.5">
+                            <svg class="w-7 h-7 text-slate-400 group-hover:text-teal-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                            <p class="text-sm text-slate-600 font-medium">點擊選擇檔案，或將 <span class="text-teal-700 font-semibold">.txt</span> 拖曳至此</p>
+                            <p id="file-name-display" class="text-xs text-slate-400">支援純文字逐字稿檔案（UTF-8 編碼）</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 對話逐字稿輸入框 -->
+                <div class="flex-1 flex flex-col">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="transcript-input" class="text-sm font-semibold text-slate-700">對話逐字稿內容</label>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="loadSampleDialogue()"
+                                class="text-xs font-medium text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-lg transition">
+                                載入範例對話
+                            </button>
+                            <button type="button" onclick="clearTranscript()"
+                                class="text-xs font-medium text-slate-500 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition">
+                                清空內容
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="transcript-input" rows="10" oninput="updateCharCount()"
+                        placeholder="請在此貼上兩人或多人對話逐字稿，或使用上方功能上傳 .txt 檔案..."
+                        class="w-full px-3.5 py-3 text-sm leading-relaxed bg-slate-50/50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition resize-y"></textarea>
+                    <div class="flex items-center justify-between mt-1.5 text-xs text-slate-400">
+                        <span>提醒：送出前請確認已移除敏感個資</span>
+                        <span id="char-count" class="font-medium text-slate-500">0 字</span>
+                    </div>
+                </div>
+
+                <!-- 4. 主要行動按鈕：開始 AI 分析整理 -->
+                <button type="button" id="btn-analyze" onclick="handleAnalyze()"
+                    class="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 active:scale-[0.99] text-white font-semibold text-sm sm:text-base rounded-xl shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition disabled:opacity-60 disabled:cursor-not-allowed">
+                    <svg id="analyze-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <svg id="analyze-spinner" class="hidden animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="analyze-btn-text">開始 AI 分析整理</span>
+                </button>
+            </div>
+
+            <!-- =================================================
+                 右側面板：AI 整理結果區 (佔 7 欄)
+                 ================================================= -->
+            <div id="output-panel" class="lg:col-span-7 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 min-h-[580px] lg:min-h-[700px] overflow-hidden">
+                <!-- 頂部工具列 -->
+                <div class="no-print flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 bg-slate-50/80 border-b border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-5 bg-slate-700 rounded-full"></span>
+                        <h2 class="text-base font-bold text-slate-800">AI 分析整理報告</h2>
+                    </div>
+
+                    <!-- 工具按鈕群組 -->
+                    <div id="output-toolbar" class="flex flex-wrap items-center gap-1.5">
+                        <!-- 切換預覽 / 原始碼 -->
+                        <div class="inline-flex rounded-xl bg-slate-200/70 p-0.5 mr-1">
+                            <button type="button" id="btn-mode-preview" onclick="setOutputViewMode('preview')"
+                                class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-sm transition">
+                                預覽排版
+                            </button>
+                            <button type="button" id="btn-mode-raw" onclick="setOutputViewMode('raw')"
+                                class="px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition">
+                                Markdown 原始碼
+                            </button>
+                        </div>
+
+                        <!-- 複製全文 -->
+                        <button type="button" onclick="copyReport()" title="複製全文"
+                            class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition">
+                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>複製</span>
+                        </button>
+
+                        <!-- 下載 .md 檔 -->
+                        <button type="button" onclick="downloadMarkdown()" title="下載 Markdown 檔案"
+                            class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition">
+                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            <span>下載 .md</span>
+                        </button>
+
+                        <!-- 列印 / 另存 PDF -->
+                        <button type="button" onclick="printReport()" title="列印或另存 PDF"
+                            class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            </svg>
+                            <span>列印 / PDF</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 結果顯示區域容器 -->
+                <div class="relative flex-1 flex flex-col overflow-hidden">
+                    
+                    <!-- 狀態 1：空狀態引導畫面 -->
+                    <div id="empty-state" class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                        <div class="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-4">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-700 mb-1.5">尚未產生分析報告</h3>
+                        <p class="text-sm text-slate-500 max-w-sm leading-relaxed mb-5">
+                            請於左側選擇分析模板，貼上對話逐字稿或上傳 <code class="text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">.txt</code> 檔案，再點擊「開始 AI 分析整理」。
+                        </p>
+                        <button type="button" onclick="loadSampleDialogue()"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            試試看：載入衛教範例對話
+                        </button>
+                    </div>
+
+                    <!-- 狀態 2：AI 分析中 Loading 畫面 -->
+                    <div id="loading-state" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center">
+                        <div class="relative w-16 h-16 mb-5">
+                            <div class="absolute inset-0 rounded-full border-4 border-teal-100"></div>
+                            <div class="absolute inset-0 rounded-full border-4 border-teal-600 border-t-transparent animate-spin"></div>
+                            <div class="absolute inset-0 flex items-center justify-center text-teal-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-800 mb-1">AI 正在深度分析對話內容...</h3>
+                        <p class="text-sm text-slate-500">正在擷取重點資訊並產生結構化報告，請稍候片刻</p>
+                    </div>
+
+                    <!-- 狀態 3：Markdown 渲染預覽區 -->
+                    <div id="preview-container" class="hidden flex-1 p-6 sm:p-8 overflow-y-auto">
+                        <article id="markdown-output" class="markdown-body"></article>
+                    </div>
+
+                    <!-- 狀態 4：Markdown 原始碼檢視區 -->
+                    <div id="raw-container" class="hidden flex-1 p-5 overflow-hidden flex flex-col">
+                        <textarea id="raw-markdown-output" readonly
+                            class="w-full flex-1 p-4 font-mono text-xs sm:text-sm leading-relaxed text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </section>
+
+    <!-- =========================================================
+         JavaScript 主程式區
+         ========================================================= -->
+    <script>
+        /* =========================================================
+           1. 系統設定區 (CONFIG)
+              部署到 GitHub Pages 前，請將下方兩個佔位字串替換為
+              您實際的 Google Apps Script 網址與 Google 表單網址。
+           ========================================================= */
+        const CONFIG = {
+            GAS_API_URL: 'YOUR_GAS_WEB_APP_URL',
+            GOOGLE_FORM_URL: 'YOUR_GOOGLE_FORM_URL'
+        };
+
+        // localStorage 儲存鍵名
+        const STORAGE_KEYS = {
+            GAS_URL: 'ai_dialogue_platform_gas_url',
+            FORM_URL: 'ai_dialogue_platform_form_url'
+        };
+
+        // 應用程式執行狀態
+        const appState = {
+            isLoggedIn: false,
+            isDemoMode: false,
+            userEmail: '',
+            authToken: '',
+            currentMarkdown: '',
+            outputViewMode: 'preview', // 'preview' | 'raw'
+            isAnalyzing: false
+        };
+
+        // 內建簡短衛教對話範例（供快速測試）
+        const SAMPLE_DIALOGUE = `00:00:01 衛教師
+最近有沒有住院或身體不舒服的情況？吃藥的部分還順利嗎？
+00:00:08 個案
+沒有住院。不過我的藥吃到昨天就沒了，本來應該 23 號回診，但剛好遇到颱風假延誤到今天 28 號才來拿藥，中間大概斷藥 5 天。
+00:00:25 衛教師
+之後如果遇到颱風天，只要在領藥期限前 7 天內都可以提早 1 到 4 天回診。如果原本主治醫師早診不方便，也可以先掛晚診請其他醫師開藥，避免藥物中斷影響飯後血糖。你這次糖化血色素是 7.9%，跟上次一樣還沒降下來。
+00:00:50 個案
+對啊，降不下來。不過我現在有戒掉保力達了，公司基於工安禁止喝，我已經好幾個月沒喝了。平常白天都自己泡無糖黑咖啡喝 1000cc，白開水也喝 1000cc 左右。
+00:01:15 衛教師
+戒掉保力達很棒！那三餐飲食大概怎麼吃？
+00:01:20 個案
+早餐很固定，大概 7 點多吃早餐店的鍋燒泡麵，裡面有蛋、肉片、丸子、魚板，我還會多加一湯匙玉米，再配一小杯含糖咖啡牛奶。
+午餐吃公司員工餐廳，飯我只吃一小口（大概四分之一碗），會多夾青菜，肉類主要是豬腿、烤豬排或肋排。
+晚餐在家吃，飯量比較多大概一碗到一碗半，配菜幾乎都是葉菜類跟蛋、豆干，比較少肉。水果常吃蘋果或香蕉，香蕉一天會吃到 2 到 3 根。
+00:02:10 衛教師
+那你白天在午餐前或晚上睡前，會不會有突然很想吃甜的，或心悸、手抖、冒冷汗的感覺？
+00:02:22 個案
+冒冷汗比較少，但有幾次午餐前覺得肌肉跟心臟有點抖動，不太確定是不是低血糖。偶爾下午覺得累的時候會想喝一點含糖飲料補充糖分。`;
+
+        /* =========================================================
+           2. 初始化與設定管理 (CONFIG + localStorage)
+           ========================================================= */
+        document.addEventListener('DOMContentLoaded', () => {
+            // 設定 Marked.js 選項，確保換行與表格正確渲染
+            if (typeof marked !== 'undefined') {
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+            }
+            updateFormLinkHref();
+            setupDragAndDrop();
+            updateCharCount();
+        });
+
+        /**
+         * 取得目前生效的系統設定（優先讀取 localStorage，其次為預設 CONFIG）
+         */
+        function getActiveConfig() {
+            const savedGas = localStorage.getItem(STORAGE_KEYS.GAS_URL);
+            const savedForm = localStorage.getItem(STORAGE_KEYS.FORM_URL);
+            return {
+                GAS_API_URL: (savedGas && savedGas.trim()) ? savedGas.trim() : CONFIG.GAS_API_URL,
+                GOOGLE_FORM_URL: (savedForm && savedForm.trim()) ? savedForm.trim() : CONFIG.GOOGLE_FORM_URL
+            };
+        }
+
+        /**
+         * 更新登入頁的 Google 表單連結
+         */
+        function updateFormLinkHref() {
+            const { GOOGLE_FORM_URL } = getActiveConfig();
+            const linkEl = document.getElementById('google-form-link');
+            if (GOOGLE_FORM_URL && GOOGLE_FORM_URL !== 'YOUR_GOOGLE_FORM_URL') {
+                linkEl.href = GOOGLE_FORM_URL;
+            } else {
+                linkEl.href = '#';
+            }
+        }
+
+        /**
+         * 點擊 Google 表單申請連結時的防呆檢查
+         */
+        function handleFormLinkClick(event) {
+            const { GOOGLE_FORM_URL } = getActiveConfig();
+            if (!GOOGLE_FORM_URL || GOOGLE_FORM_URL === 'YOUR_GOOGLE_FORM_URL') {
+                event.preventDefault();
+                showToast('尚未設定 Google 表單連結，請先點擊右上角齒輪設定或修改程式碼中的 CONFIG。', 'warning');
+                openConfigModal();
+            }
+        }
+
+        /**
+         * 開啟系統設定彈窗
+         */
+        function openConfigModal() {
+            const active = getActiveConfig();
+            document.getElementById('input-gas-url').value = active.GAS_API_URL === 'YOUR_GAS_WEB_APP_URL' ? '' : active.GAS_API_URL;
+            document.getElementById('input-form-url').value = active.GOOGLE_FORM_URL === 'YOUR_GOOGLE_FORM_URL' ? '' : active.GOOGLE_FORM_URL;
+            document.getElementById('config-modal').classList.remove('hidden');
+        }
+
+        /**
+         * 關閉系統設定彈窗
+         */
+        function closeConfigModal() {
+            document.getElementById('config-modal').classList.add('hidden');
+        }
+
+        /**
+         * 儲存設定至 localStorage
+         */
+        function saveConfigFromModal() {
+            const gasUrl = document.getElementById('input-gas-url').value.trim();
+            const formUrl = document.getElementById('input-form-url').value.trim();
+
+            if (gasUrl) {
+                localStorage.setItem(STORAGE_KEYS.GAS_URL, gasUrl);
+            } else {
+                localStorage.removeItem(STORAGE_KEYS.GAS_URL);
+            }
+
+            if (formUrl) {
+                localStorage.setItem(STORAGE_KEYS.FORM_URL, formUrl);
+            } else {
+                localStorage.removeItem(STORAGE_KEYS.FORM_URL);
+            }
+
+            updateFormLinkHref();
+            closeConfigModal();
+            showToast('系統設定已儲存至本機瀏覽器。', 'success');
+        }
+
+        /**
+         * 恢復預設 CONFIG 設定
+         */
+        function resetConfigToDefault() {
+            localStorage.removeItem(STORAGE_KEYS.GAS_URL);
+            localStorage.removeItem(STORAGE_KEYS.FORM_URL);
+            updateFormLinkHref();
+            closeConfigModal();
+            showToast('已清除暫存設定，恢復程式碼預設值。', 'info');
+        }
+
+        /* =========================================================
+           3. 登入驗證與切換工作台邏輯
+           ========================================================= */
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            const { GAS_API_URL } = getActiveConfig();
+
+            if (!email || !password) {
+                showToast('請輸入完整的帳號與密碼／授權碼。', 'warning');
+                return;
+            }
+
+            if (!GAS_API_URL || GAS_API_URL === 'YOUR_GAS_WEB_APP_URL') {
+                showToast('尚未設定 GAS 後端網址！請先點擊右上角設定，或使用「離線展示模式 (Demo)」體驗。', 'warning');
+                return;
+            }
+
+            setLoginLoading(true);
+
+            try {
+                // 使用 text/plain;charset=utf-8 避開 Google Apps Script 的 CORS 預檢 (OPTIONS) 問題
+                const response = await fetch(GAS_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify({
+                        action: 'login',
+                        email: email,
+                        password: password
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP 錯誤狀態碼：${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    appState.isLoggedIn = true;
+                    appState.isDemoMode = false;
+                    appState.userEmail = email;
+                    appState.authToken = result.token || password; // 若後端回傳 token 則使用，否則沿用授權碼
+                    switchToWorkspace();
+                    showToast(`歡迎回來，${email}！`, 'success');
+                } else {
+                    showToast(result.message || '帳號尚未開通或密碼錯誤，請確認後再試。', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showToast('無法連線至驗證伺服器，請確認 GAS 網址與部署權限是否正確。', 'error');
+            } finally {
+                setLoginLoading(false);
+            }
+        }
+
+        /**
+         * 進入離線展示模式 (Demo)
+         */
+        function enterDemoMode() {
+            appState.isLoggedIn = true;
+            appState.isDemoMode = true;
+            appState.userEmail = '離線展示模式 (Demo)';
+            appState.authToken = 'DEMO_TOKEN';
+            switchToWorkspace();
+            showToast('已進入離線展示模式，可完整測試上傳、模擬 AI 分析與匯出功能。', 'info');
+        }
+
+        /**
+         * 登出並返回登入畫面
+         */
+        function handleLogout() {
+            appState.isLoggedIn = false;
+            appState.isDemoMode = false;
+            appState.userEmail = '';
+            appState.authToken = '';
+            appState.currentMarkdown = '';
+
+            document.getElementById('login-password').value = '';
+            document.getElementById('workspace-view').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+            resetOutputView();
+            showToast('您已安全登出系統。', 'info');
+        }
+
+        /**
+         * 切換至主工作台畫面並更新頂部狀態標籤
+         */
+        function switchToWorkspace() {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('workspace-view').classList.remove('hidden');
+
+            const displayNameEl = document.getElementById('user-display-name');
+            const mobileBadgeEl = document.getElementById('mobile-user-badge');
+            const statusDotEl = document.getElementById('user-status-dot');
+
+            displayNameEl.textContent = appState.userEmail;
+            mobileBadgeEl.textContent = appState.isDemoMode ? 'Demo 模式' : appState.userEmail;
+
+            if (appState.isDemoMode) {
+                statusDotEl.className = 'w-2 h-2 rounded-full bg-amber-500';
+            } else {
+                statusDotEl.className = 'w-2 h-2 rounded-full bg-teal-500';
+            }
+        }
+
+        function setLoginLoading(isLoading) {
+            const btn = document.getElementById('btn-login-submit');
+            const text = document.getElementById('login-btn-text');
+            const spinner = document.getElementById('login-spinner');
+            btn.disabled = isLoading;
+            text.textContent = isLoading ? '驗證權限中...' : '登入系統';
+            spinner.classList.toggle('hidden', !isLoading);
+        }
+
+        /* =========================================================
+           4. 對話輸入、模板切換與 .txt 檔案拖曳上傳
+           ========================================================= */
+        function handleTemplateChange() {
+            const selectVal = document.getElementById('template-select').value;
+            const customWrapper = document.getElementById('custom-prompt-wrapper');
+            if (selectVal === 'custom') {
+                customWrapper.classList.remove('hidden');
+                document.getElementById('custom-prompt-input').focus();
+            } else {
+                customWrapper.classList.add('hidden');
+            }
+        }
+
+        function updateCharCount() {
+            const text = document.getElementById('transcript-input').value;
+            document.getElementById('char-count').textContent = `${text.length.toLocaleString()} 字`;
+        }
+
+        function loadSampleDialogue() {
+            document.getElementById('transcript-input').value = SAMPLE_DIALOGUE;
+            document.getElementById('file-name-display').textContent = '已載入內建範例：衛教門診追蹤對話.txt';
+            document.getElementById('file-name-display').className = 'text-xs text-teal-700 font-medium';
+            updateCharCount();
+            showToast('已載入衛教範例對話，點擊下方按鈕即可開始分析。', 'success');
+        }
+
+        function clearTranscript() {
+            document.getElementById('transcript-input').value = '';
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-name-display').textContent = '支援純文字逐字稿檔案（UTF-8 編碼）';
+            document.getElementById('file-name-display').className = 'text-xs text-slate-400';
+            updateCharCount();
+            showToast('已清空對話輸入內容。', 'info');
+        }
+
+        /**
+         * 綁定拖曳上傳事件
+         */
+        function setupDragAndDrop() {
+            const dropzone = document.getElementById('dropzone');
+            if (!dropzone) return;
+
+            ['dragenter', 'dragover'].forEach(evtName => {
+                dropzone.addEventListener(evtName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('dropzone-active');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(evtName => {
+                dropzone.addEventListener(evtName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('dropzone-active');
+                });
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) {
+                    processUploadedFile(files[0]);
+                }
+            });
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                processUploadedFile(file);
+            }
+        }
+
+        /**
+         * 讀取 .txt 檔案並填入文字框
+         */
+        function processUploadedFile(file) {
+            if (!file.name.toLowerCase().endsWith('.txt') && file.type !== 'text/plain') {
+                showToast('僅支援上傳 .txt 純文字檔案。', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                document.getElementById('transcript-input').value = content;
+                const fileNameEl = document.getElementById('file-name-display');
+                fileNameEl.textContent = `已載入檔案：${file.name}`;
+                fileNameEl.className = 'text-xs text-teal-700 font-semibold';
+                updateCharCount();
+                showToast(`成功載入檔案「${file.name}」！`, 'success');
+            };
+            reader.onerror = () => {
+                showToast('檔案讀取失敗，請確認檔案格式是否正常。', 'error');
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        /* =========================================================
+           5. 呼叫 GAS API 或執行 Demo 模擬分析
+           ========================================================= */
+        async function handleAnalyze() {
+            if (appState.isAnalyzing) return;
+
+            const transcript = document.getElementById('transcript-input').value.trim();
+            const template = document.getElementById('template-select').value;
+            const customPrompt = document.getElementById('custom-prompt-input').value.trim();
+
+            if (!transcript) {
+                showToast('請先輸入對話逐字稿，或上傳 .txt 檔案。', 'warning');
+                document.getElementById('transcript-input').focus();
+                return;
+            }
+
+            if (template === 'custom' && !customPrompt) {
+                showToast('您選擇了「自訂分析指令」，請輸入您的分析需求。', 'warning');
+                document.getElementById('custom-prompt-input').focus();
+                return;
+            }
+
+            setAnalyzingState(true);
+
+            // 若為離線展示模式，模擬 1.5 秒後產出結構化範例報告
+            if (appState.isDemoMode) {
+                setTimeout(() => {
+                    const demoMarkdown = generateDemoReport(template, customPrompt, transcript);
+                    displayMarkdownResult(demoMarkdown);
+                    setAnalyzingState(false);
+                    showToast('Demo 模擬分析完成！', 'success');
+                }, 1500);
+                return;
+            }
+
+            // 正式模式：呼叫 Google Apps Script 後端
+            const { GAS_API_URL } = getActiveConfig();
+            if (!GAS_API_URL || GAS_API_URL === 'YOUR_GAS_WEB_APP_URL') {
+                setAnalyzingState(false);
+                showToast('尚未設定 GAS 後端網址，無法呼叫 AI 分析。', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(GAS_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify({
+                        action: 'analyze',
+                        email: appState.userEmail,
+                        token: appState.authToken,
+                        template: template,
+                        customPrompt: customPrompt,
+                        transcript: transcript
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP 錯誤狀態碼：${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success && result.markdown) {
+                    displayMarkdownResult(result.markdown);
+                    showToast('AI 分析整理完成！', 'success');
+                } else {
+                    resetOutputView();
+                    showToast(result.message || 'AI 分析失敗，請稍後再試或檢查後端日誌。', 'error');
+                }
+            } catch (error) {
+                console.error('Analyze error:', error);
+                resetOutputView();
+                showToast('連線至後端分析服務失敗，請檢查網路或 GAS 部署設定。', 'error');
+            } finally {
+                setAnalyzingState(false);
+            }
+        }
+
+        function setAnalyzingState(isLoading) {
+            appState.isAnalyzing = isLoading;
+            const btn = document.getElementById('btn-analyze');
+            const icon = document.getElementById('analyze-icon');
+            const spinner = document.getElementById('analyze-spinner');
+            const text = document.getElementById('analyze-btn-text');
+
+            btn.disabled = isLoading;
+            icon.classList.toggle('hidden', isLoading);
+            spinner.classList.toggle('hidden', !isLoading);
+            text.textContent = isLoading ? 'AI 分析整理中...' : '開始 AI 分析整理';
+
+            if (isLoading) {
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('preview-container').classList.add('hidden');
+                document.getElementById('raw-container').classList.add('hidden');
+                document.getElementById('loading-state').classList.remove('hidden');
+            }
+        }
+
+        /**
+         * 根據選擇的模板產生逼真的 Demo 範例報告
+         */
+        function generateDemoReport(template, customPrompt, transcript) {
+            const charLen = transcript.length;
+            const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+
+            if (template === 'health_edu') {
+                return `# 衛教與門診追蹤紀錄摘要（Demo 展示報告）
+
+> **分析時間**：${nowStr} ｜ **逐字稿字數**：${charLen} 字 ｜ **分析模式**：衛教與門診追蹤紀錄
+
+## 一、 回診與用藥銜接狀況
+* **近期住院史**：無住院紀錄。
+* **斷藥情形**：原訂 23 日回診，因遇颱風假順延至 28 日才領藥，導致中間出現約 **5 天斷藥空窗期**。
+* **衛教提醒**：未來若遇天災或連假，於領藥期限前 **7 天內**皆可提早 1～4 天回診；若原主治醫師早診不克前往，可先掛晚診請其他醫師代開藥，避免影響飯後血糖穩定。
+
+## 二、 血糖數值與飲品習慣
+| 項目 | 紀錄內容 | 評估備註 |
+| :--- | :--- | :--- |
+| **糖化血色素 (HbA1c)** | **7.9%** | 與前次相同，尚未下降 |
+| **酒精／提神飲品** | 已停喝保力達數個月 | 正向改變（配合公司工安規定） |
+| **日常飲品** | 無糖黑咖啡 ~1,000 cc、白開水 ~1,000 cc | 水分攝取充足；偶爾疲累時會喝少量含糖飲料 |
+
+## 三、 三餐與水果飲食紀錄
+* **早餐（約 07:00，固定）**：早餐店鍋燒泡麵（含蛋、肉片、丸子、魚板等加工品＋一湯匙玉米）搭配**一小杯含糖咖啡牛奶**。
+* **午餐（公司員工餐廳）**：飯量極少（約 1/4 碗），青菜量足，主菜多為豬肉料理（滷豬腿、烤豬排、肋排等）。
+* **晚餐（家中自煮）**：飯量較多（1～1.5 碗），配菜以葉菜類、蛋、豆干為主，肉類蛋白質偏少。
+* **水果攝取**：以蘋果、香蕉為主，香蕉每日攝取量可達 **2～3 根**（碳水化合物偏高）。
+
+## 四、 疑似低血糖症狀與後續建議
+* **疑似症狀**：個案提及偶有午餐前肌肉或心臟抖動感（較少冒冷汗），與低血糖前兆（心悸、手抖、無力）高度相似。
+* **後續衛教建議**：
+  1. **調整精緻糖與澱粉分配**：建議早餐咖啡牛奶改為無糖鮮奶茶或無糖拿鐵，並減少加工火鍋料與玉米（屬全穀雜糧類）攝取。
+  2. **水果份量控制**：香蕉建議每日控制在 **1 根以內**（或分次食用），避免單次血糖大幅波動。
+  3. **均衡晚餐蛋白質**：晚餐可適度減少白飯至 0.8～1 碗，並增加豆腐、魚類或雞肉等優質蛋白質。`;
+            }
+
+            if (template === 'meeting') {
+                return `# 會議紀錄重點摘要（Demo 展示報告）
+
+> **分析時間**：${nowStr} ｜ **逐字稿字數**：${charLen} 字 ｜ **分析模式**：一般會議紀錄摘要
+
+## 一、 會議核心重點
+* 本次對話主要針對目前作業流程中的時間銜接問題與現況數據進行檢視。
+* 雙方已針對突發狀況（如不可抗力之停班停課）確認了提前因應的彈性處理機制。
+
+## 二、 決議事項
+1. **建立提前備援機制**：未來凡遇連假或天候異常預報，提前 1～4 日啟動替代方案。
+2. **維持既有正向改善**：持續保持目前已戒除之高風險習慣，確保現場作業安全。
+
+## 三、 待辦清單 (Action Items)
+| 負責對象 | 待辦事項 | 預期目標 |
+| :--- | :--- | :--- |
+| **主責人員** | 落實提前排程提醒與替代方案銜接 | 避免作業空窗期再次發生 |
+| **相關參與者** | 調整日常執行細節並記錄異常感受 | 於下次追蹤會議回報改善成效 |`;
+            }
+
+            if (template === 'cs_consult') {
+                return `# 客服／諮詢對話分析報告（Demo 展示報告）
+
+> **分析時間**：${nowStr} ｜ **逐字稿字數**：${charLen} 字 ｜ **分析模式**：客服／諮詢對話分析
+
+## 一、 客戶核心需求與現況
+* 客戶因突發外部因素（天候停班）導致原訂服務／領取排程延誤 5 天。
+* 客戶已嘗試配合部分規範調整行為，但核心指標目前仍維持原狀，尚未見明顯改善。
+
+## 二、 痛點與潛在風險
+* **排程彈性不足**：客戶不清楚可提前預約或使用替代時段（晚間服務）。
+* **異常訊號未明確識別**：過程中曾出現不適前兆，但客戶缺乏判斷標準，可能延誤處理。
+
+## 三、 處理結果與後續追蹤建議
+* **當下處置**：服務人員已清楚說明「提前 7 日內皆可預約」及「替代時段」之彈性規則。
+* **後續追蹤**：建議於下次聯絡時，主動關心客戶對替代時段的使用滿意度，並提供簡易的自我檢核表。`;
+            }
+
+            // 自訂分析指令 Demo 回應
+            return `# 自訂分析報告（Demo 展示報告）
+
+> **分析時間**：${nowStr} ｜ **逐字稿字數**：${charLen} 字
+> **套用指令**：${customPrompt}
+
+## 分析結果摘要
+* 目前處於**離線展示模式 (Demo)**，系統已接收到您的自訂指令與對話內容。
+* 正式串接 Google Apps Script 與 Google AI Studio (Gemini API) 後，AI 將嚴格依照您的自訂 Prompt 進行深度語意解析，並即時回傳客製化的 Markdown 報告。
+
+### 偵測到的對話概況
+* **輸入內容長度**：約 ${charLen} 字
+* **建議下一步**：點擊右上角「API 設定」填入您的 GAS Web App URL，即可啟用真實 Gemini 模型進行分析。`;
+        }
+
+        /* =========================================================
+           6. 報告渲染、檢視切換、複製、下載與列印
+           ========================================================= */
+        function displayMarkdownResult(markdownText) {
+            appState.currentMarkdown = markdownText;
+
+            // 使用 Marked.js 渲染 HTML
+            const htmlContent = typeof marked !== 'undefined'
+                ? marked.parse(markdownText)
+                : `<pre>${escapeHtml(markdownText)}</pre>`;
+
+            document.getElementById('markdown-output').innerHTML = htmlContent;
+            document.getElementById('raw-markdown-output').value = markdownText;
+
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+
+            // 依據目前選擇的檢視模式顯示對應容器
+            setOutputViewMode(appState.outputViewMode);
+        }
+
+        function resetOutputView() {
+            appState.currentMarkdown = '';
+            document.getElementById('markdown-output').innerHTML = '';
+            document.getElementById('raw-markdown-output').value = '';
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('raw-container').classList.add('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+        }
+
+        /**
+         * 切換「預覽排版」與「Markdown 原始碼」
+         */
+        function setOutputViewMode(mode) {
+            appState.outputViewMode = mode;
+
+            const btnPreview = document.getElementById('btn-mode-preview');
+            const btnRaw = document.getElementById('btn-mode-raw');
+            const previewContainer = document.getElementById('preview-container');
+            const rawContainer = document.getElementById('raw-container');
+
+            if (mode === 'preview') {
+                btnPreview.className = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-sm transition';
+                btnRaw.className = 'px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition';
+            } else {
+                btnRaw.className = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-sm transition';
+                btnPreview.className = 'px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition';
+            }
+
+            // 僅在已有報告內容時切換顯示區塊
+            if (appState.currentMarkdown) {
+                previewContainer.classList.toggle('hidden', mode !== 'preview');
+                rawContainer.classList.toggle('hidden', mode !== 'raw');
+            }
+        }
+
+        /**
+         * 複製全文（採用 document.execCommand('copy') 以確保在各種瀏覽器與 iframe 中皆可正常運作）
+         */
+        function copyReport() {
+            if (!appState.currentMarkdown) {
+                showToast('目前沒有可複製的分析報告。', 'warning');
+                return;
+            }
+
+            try {
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = appState.currentMarkdown;
+                tempTextarea.style.position = 'fixed';
+                tempTextarea.style.left = '-9999px';
+                tempTextarea.style.top = '0';
+                document.body.appendChild(tempTextarea);
+                tempTextarea.focus();
+                tempTextarea.select();
+
+                const successful = document.execCommand('copy');
+                document.body.removeChild(tempTextarea);
+
+                if (successful) {
+                    showToast('已複製完整 Markdown 報告至剪貼簿！', 'success');
+                } else {
+                    showToast('複製失敗，請切換至「Markdown 原始碼」手動複製。', 'error');
+                }
+            } catch (err) {
+                console.error('Copy failed:', err);
+                showToast('複製發生錯誤，請手動選取複製。', 'error');
+            }
+        }
+
+        /**
+         * 下載為 .md 檔案
+         */
+        function downloadMarkdown() {
+            if (!appState.currentMarkdown) {
+                showToast('目前沒有可下載的分析報告。', 'warning');
+                return;
+            }
+
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const filename = `AI對話分析報告_${dateStr}.md`;
+
+            const blob = new Blob([appState.currentMarkdown], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast(`已開始下載「${filename}」`, 'success');
+        }
+
+        /**
+         * 列印或另存 PDF（自動切回預覽模式以確保列印美觀）
+         */
+        function printReport() {
+            if (!appState.currentMarkdown) {
+                showToast('目前沒有可列印的分析報告。', 'warning');
+                return;
+            }
+
+            if (appState.outputViewMode !== 'preview') {
+                setOutputViewMode('preview');
+            }
+            setTimeout(() => {
+                window.print();
+            }, 100);
+        }
+
+        /* =========================================================
+           7. Toast 通知系統與工具函式
+           ========================================================= */
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            const styles = {
+                success: {
+                    bg: 'bg-teal-600 text-white border-teal-700',
+                    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>'
+                },
+                error: {
+                    bg: 'bg-rose-600 text-white border-rose-700',
+                    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>'
+                },
+                warning: {
+                    bg: 'bg-amber-500 text-white border-amber-600',
+                    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>'
+                },
+                info: {
+                    bg: 'bg-slate-800 text-white border-slate-900',
+                    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+                }
+            };
+
+            const style = styles[type] || styles.info;
+
+            toast.className = `pointer-events-auto flex items-start gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all duration-300 transform translate-x-4 opacity-0 ${style.bg}`;
+            toast.innerHTML = `
+                <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">${style.icon}</svg>
+                <span class="leading-snug">${escapeHtml(message)}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // 觸發滑入動畫
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-x-4', 'opacity-0');
+            });
+
+            // 3.5 秒後自動淡出移除
+            setTimeout(() => {
+                toast.classList.add('translate-x-4', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
