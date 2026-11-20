@@ -226,7 +226,7 @@
       class="no-print fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] pointer-events-none"></div>
 
     <!-- =========================================================
-         API 與系統設定彈窗 (Modal)
+         API 系統設定彈窗 (Modal)
          ========================================================= -->
     <div
       id="config-modal"
@@ -255,9 +255,7 @@
                   d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
               </svg>
             </div>
-            <h3 class="text-lg font-bold text-slate-800">
-              系統 API 與表單設定
-            </h3>
+            <h3 class="text-lg font-bold text-slate-800">系統 API 設定</h3>
           </div>
           <button
             type="button"
@@ -285,8 +283,7 @@
             <code class="text-teal-700 font-medium">index.html</code> 內
             <code class="text-teal-700 font-medium">&lt;script&gt;</code>
             最上方的
-            <code class="text-teal-700 font-medium">GAS_API_URL</code> 與
-            <code class="text-teal-700 font-medium">GOOGLE_FORM_URL</code>。
+            <code class="text-teal-700 font-medium">GAS_API_URL</code>。
           </p>
           <div>
             <label
@@ -298,18 +295,6 @@
               type="url"
               id="input-gas-url"
               placeholder="https://script.google.com/macros/s/xxxx/exec"
-              class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition" />
-          </div>
-          <div>
-            <label
-              for="input-form-url"
-              class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Google 表單權限申請連結</label
-            >
-            <input
-              type="url"
-              id="input-form-url"
-              placeholder="https://docs.google.com/forms/d/e/xxxx/viewform"
               class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition" />
           </div>
         </div>
@@ -340,7 +325,7 @@
     </div>
 
     <!-- =========================================================
-         畫面一：權限驗證登入頁 (Login View)
+         畫面一：權限驗證登入頁 (Login View - 開發者自建帳號精簡版)
          ========================================================= -->
     <section
       id="login-view"
@@ -356,7 +341,7 @@
             <button
               type="button"
               onclick="openConfigModal()"
-              title="設定 API 與表單網址"
+              title="設定 GAS API 網址"
               class="absolute top-4 right-4 p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition">
               <svg
                 class="w-5 h-5"
@@ -395,7 +380,7 @@
               AI 對話紀錄智慧分析平台
             </h1>
             <p class="mt-1.5 text-sm text-slate-500">
-              串接 Google AI Studio 與專屬權限控管工作台
+              內部專屬 AI 衛教與訪談分析工作台
             </p>
           </div>
 
@@ -406,9 +391,9 @@
             class="p-6 sm:p-8 space-y-5">
             <div>
               <label
-                for="login-email"
+                for="login-account"
                 class="block text-sm font-semibold text-slate-700 mb-1.5"
-                >帳號 (Email)</label
+                >帳號</label
               >
               <div class="relative">
                 <span
@@ -422,15 +407,15 @@
                       stroke-linecap="round"
                       stroke-linejoin="round"
                       stroke-width="1.8"
-                      d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                   </svg>
                 </span>
                 <input
-                  type="email"
-                  id="login-email"
+                  type="text"
+                  id="login-account"
                   required
-                  autocomplete="email"
-                  placeholder="name@example.com"
+                  autocomplete="username"
+                  placeholder="請輸入您的帳號（例如 admin）"
                   class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50/50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition" />
               </div>
             </div>
@@ -439,7 +424,7 @@
               <label
                 for="login-password"
                 class="block text-sm font-semibold text-slate-700 mb-1.5"
-                >密碼 / 授權碼</label
+                >密碼</label
               >
               <div class="relative">
                 <span
@@ -461,7 +446,7 @@
                   id="login-password"
                   required
                   autocomplete="current-password"
-                  placeholder="請輸入您的密碼或授權碼"
+                  placeholder="請輸入您的密碼"
                   class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50/50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition" />
               </div>
             </div>
@@ -522,40 +507,10 @@
               進入離線展示模式 (Demo)
             </button>
 
-            <!-- Google 表單權限申請按鈕 -->
-            <div class="pt-2">
-              <a
-                id="google-form-link"
-                href="#"
-                target="_blank"
-                rel="noopener noreferrer"
-                onclick="handleFormLinkClick(event)"
-                class="w-full py-2.5 px-4 bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold text-sm rounded-xl border border-teal-200/80 flex items-center justify-center gap-2 transition">
-                <svg
-                  class="w-4 h-4 text-teal-600 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                </svg>
-                <span>還沒有帳號？填寫 Google 表單申請開通權限</span>
-                <svg
-                  class="w-4 h-4 text-teal-600 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                </svg>
-              </a>
-            </div>
+            <!-- 帳號管理說明 -->
+            <p class="text-center text-xs text-slate-400 pt-1">
+              帳號由系統管理員統一建置，如需開通或解鎖請聯繫管理員。
+            </p>
           </form>
         </div>
 
@@ -618,7 +573,7 @@
 
           <!-- 右側：使用者狀態與操作按鈕 -->
           <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <!-- 登入者姓名與 Email / Demo 標籤 -->
+            <!-- 登入者姓名與帳號 / Demo 標籤 -->
             <div
               id="user-badge"
               class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
@@ -626,7 +581,7 @@
                 id="user-status-dot"
                 class="w-2 h-2 rounded-full bg-teal-500 flex-shrink-0"></span>
               <span id="user-display-name" class="max-w-[240px] truncate"
-                >user@example.com</span
+                >admin</span
               >
             </div>
 
@@ -1060,18 +1015,14 @@
       /* =========================================================
          1. 系統設定區
             - GAS_API_URL：Google Apps Script 網頁應用程式 (/exec)
-            - GOOGLE_FORM_URL：帳號權限申請 Google 表單連結
          ========================================================= */
       const GAS_API_URL =
         "https://script.google.com/macros/s/AKfycbzZ4-J61PTuyJZFclDBNHV6GZN5CcOZY0H7dRRaAm_x1aot6k8KNCwofVCfULirnnT4Tg/exec";
-      const GOOGLE_FORM_URL =
-        "https://docs.google.com/forms/d/e/1FAIpQLScmOMStaf3GY0yfn4GBz0vMgzz4Z6viTLye4n3c8DroE1VS5Q/viewform";
 
       // 本機與工作階段儲存鍵名
       const STORAGE_KEYS = {
         GAS_URL: "ai_dialogue_platform_gas_url",
-        FORM_URL: "ai_dialogue_platform_form_url",
-        SESSION: "ai_dialogue_platform_session",
+        SESSION: "ai_dialogue_platform_session_v2",
       };
 
       // 應用程式執行狀態
@@ -1079,7 +1030,8 @@
         isLoggedIn: false,
         isDemoMode: false,
         userName: "",
-        userEmail: "",
+        userAccount: "",
+        userRole: "user",
         userPassword: "",
         currentMarkdown: "",
         outputViewMode: "preview", // 'preview' | 'raw'
@@ -1116,7 +1068,6 @@
             gfm: true,
           });
         }
-        updateFormLinkHref();
         setupDragAndDrop();
         updateCharCount();
         restoreSessionIfAvailable();
@@ -1126,46 +1077,18 @@
         return !url || url.trim() === "" || url.includes("請替換");
       }
 
-      function getActiveConfig() {
+      function getActiveGasUrl() {
         const savedGas = localStorage.getItem(STORAGE_KEYS.GAS_URL);
-        const savedForm = localStorage.getItem(STORAGE_KEYS.FORM_URL);
-        return {
-          gasUrl: savedGas && savedGas.trim() ? savedGas.trim() : GAS_API_URL,
-          formUrl:
-            savedForm && savedForm.trim() ? savedForm.trim() : GOOGLE_FORM_URL,
-        };
-      }
-
-      function updateFormLinkHref() {
-        const { formUrl } = getActiveConfig();
-        const linkEl = document.getElementById("google-form-link");
-        linkEl.href = !isPlaceholderUrl(formUrl) ? formUrl : "#";
-      }
-
-      function handleFormLinkClick(event) {
-        const { formUrl } = getActiveConfig();
-        if (isPlaceholderUrl(formUrl)) {
-          event.preventDefault();
-          showToast(
-            "尚未設定 Google 表單連結！請修改程式碼中的 GOOGLE_FORM_URL，或先點擊右上角齒輪進行設定。",
-            "warning",
-          );
-          openConfigModal();
-        }
+        return savedGas && savedGas.trim() ? savedGas.trim() : GAS_API_URL;
       }
 
       function openConfigModal() {
-        const active = getActiveConfig();
+        const gasUrl = getActiveGasUrl();
         document.getElementById("input-gas-url").value = isPlaceholderUrl(
-          active.gasUrl,
+          gasUrl,
         )
           ? ""
-          : active.gasUrl;
-        document.getElementById("input-form-url").value = isPlaceholderUrl(
-          active.formUrl,
-        )
-          ? ""
-          : active.formUrl;
+          : gasUrl;
         document.getElementById("config-modal").classList.remove("hidden");
       }
 
@@ -1175,7 +1098,6 @@
 
       function saveConfigFromModal() {
         const gasUrl = document.getElementById("input-gas-url").value.trim();
-        const formUrl = document.getElementById("input-form-url").value.trim();
 
         if (gasUrl) {
           localStorage.setItem(STORAGE_KEYS.GAS_URL, gasUrl);
@@ -1183,21 +1105,12 @@
           localStorage.removeItem(STORAGE_KEYS.GAS_URL);
         }
 
-        if (formUrl) {
-          localStorage.setItem(STORAGE_KEYS.FORM_URL, formUrl);
-        } else {
-          localStorage.removeItem(STORAGE_KEYS.FORM_URL);
-        }
-
-        updateFormLinkHref();
         closeConfigModal();
-        showToast("系統設定已儲存至本機瀏覽器。", "success");
+        showToast("GAS API 設定已儲存至本機瀏覽器。", "success");
       }
 
       function resetConfigToDefault() {
         localStorage.removeItem(STORAGE_KEYS.GAS_URL);
-        localStorage.removeItem(STORAGE_KEYS.FORM_URL);
-        updateFormLinkHref();
         closeConfigModal();
         showToast("已清除暫存設定，恢復程式碼預設值。", "info");
       }
@@ -1210,9 +1123,10 @@
           sessionStorage.setItem(
             STORAGE_KEYS.SESSION,
             JSON.stringify({
-              email: appState.userEmail,
+              account: appState.userAccount,
               password: appState.userPassword,
               name: appState.userName,
+              role: appState.userRole,
               isDemo: appState.isDemoMode,
             }),
           );
@@ -1226,12 +1140,13 @@
           const raw = sessionStorage.getItem(STORAGE_KEYS.SESSION);
           if (!raw) return;
           const saved = JSON.parse(raw);
-          if (saved && (saved.isDemo || (saved.email && saved.password))) {
+          if (saved && (saved.isDemo || (saved.account && saved.password))) {
             appState.isLoggedIn = true;
             appState.isDemoMode = Boolean(saved.isDemo);
-            appState.userEmail = saved.email || "";
+            appState.userAccount = saved.account || "";
             appState.userPassword = saved.password || "";
             appState.userName = saved.name || "";
+            appState.userRole = saved.role || "user";
             switchToWorkspace();
           }
         } catch (err) {
@@ -1242,12 +1157,12 @@
       async function handleLogin(event) {
         event.preventDefault();
 
-        const email = document.getElementById("login-email").value.trim();
+        const account = document.getElementById("login-account").value.trim();
         const password = document.getElementById("login-password").value.trim();
-        const { gasUrl } = getActiveConfig();
+        const gasUrl = getActiveGasUrl();
 
-        if (!email || !password) {
-          showToast("請輸入完整的帳號 (Email) 與密碼。", "warning");
+        if (!account || !password) {
+          showToast("請輸入完整的帳號與密碼。", "warning");
           return;
         }
 
@@ -1270,7 +1185,7 @@
             },
             body: JSON.stringify({
               action: "login",
-              email: email,
+              account: account,
               password: password,
             }),
           });
@@ -1281,22 +1196,23 @@
 
           const result = await response.json();
 
-          // 對應 GAS 後端回傳格式：{ status: 'success', user: { name, email } }
+          // 對應 GAS 後端回傳格式：{ status: 'success', user: { name, email(account), role } }
           if (result.status === "success" && result.user) {
             appState.isLoggedIn = true;
             appState.isDemoMode = false;
             appState.userName = result.user.name || "";
-            appState.userEmail = result.user.email || email;
+            appState.userAccount = result.user.email || account;
+            appState.userRole = result.user.role || "user";
             appState.userPassword = password;
             saveSession();
             switchToWorkspace();
             const greeting = appState.userName
-              ? `${appState.userName} (${appState.userEmail})`
-              : appState.userEmail;
+              ? `${appState.userName} (${appState.userAccount})`
+              : appState.userAccount;
             showToast(`歡迎回來，${greeting}！`, "success");
           } else {
             showToast(
-              result.message || "帳號尚未開通或密碼錯誤，請確認後再試。",
+              result.message || "帳號或密碼錯誤，請確認後再試。",
               "error",
             );
           }
@@ -1315,7 +1231,8 @@
         appState.isLoggedIn = true;
         appState.isDemoMode = true;
         appState.userName = "訪客展示";
-        appState.userEmail = "demo@example.com";
+        appState.userAccount = "demo";
+        appState.userRole = "demo";
         appState.userPassword = "";
         saveSession();
         switchToWorkspace();
@@ -1329,7 +1246,8 @@
         appState.isLoggedIn = false;
         appState.isDemoMode = false;
         appState.userName = "";
-        appState.userEmail = "";
+        appState.userAccount = "";
+        appState.userRole = "user";
         appState.userPassword = "";
         appState.currentMarkdown = "";
 
@@ -1355,12 +1273,14 @@
           statusDotEl.className =
             "w-2 h-2 rounded-full bg-amber-500 flex-shrink-0";
         } else {
+          const roleTag = appState.userRole === "admin" ? " [管理員]" : "";
           const fullLabel = appState.userName
-            ? `${appState.userName} (${appState.userEmail})`
-            : appState.userEmail;
+            ? `${appState.userName} (${appState.userAccount})${roleTag}`
+            : `${appState.userAccount}${roleTag}`;
           displayNameEl.textContent = fullLabel;
           displayNameEl.title = fullLabel;
-          mobileBadgeEl.textContent = appState.userName || appState.userEmail;
+          mobileBadgeEl.textContent =
+            appState.userName || appState.userAccount;
           statusDotEl.className =
             "w-2 h-2 rounded-full bg-teal-500 flex-shrink-0";
         }
@@ -1524,7 +1444,7 @@
           return;
         }
 
-        const { gasUrl } = getActiveConfig();
+        const gasUrl = getActiveGasUrl();
         if (isPlaceholderUrl(gasUrl)) {
           setAnalyzingState(false);
           resetOutputView();
@@ -1540,7 +1460,7 @@
             },
             body: JSON.stringify({
               action: "analyze",
-              email: appState.userEmail,
+              account: appState.userAccount,
               password: appState.userPassword,
               template: template,
               customPrompt: customPrompt,
