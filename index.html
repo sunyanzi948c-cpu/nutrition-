@@ -474,42 +474,20 @@
               class="sm:hidden text-xs font-medium px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200"></span>
           </div>
 
-          <!-- 1. 分析模板選擇（對應 GAS 後端 getSystemPrompt 鍵值） -->
+          <!-- 1. 分析模板（僅保留醫療／衛教門診追蹤） -->
           <div>
             <label
               for="template-select"
               class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >選擇分析模板</label
+              >分析模板</label
             >
             <select
               id="template-select"
-              onchange="handleTemplateChange()"
               class="w-full px-3.5 py-2.5 text-sm bg-slate-50/70 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition cursor-pointer">
               <option value="medical">
                 1. 醫療／衛教門診追蹤（用藥、血糖、飲食、症狀與建議）
               </option>
-              <option value="meeting">
-                2. 一般會議紀錄（會議摘要、討論重點、決議、待辦事項）
-              </option>
-              <option value="service">
-                3. 客服／諮詢紀錄（客戶需求、處理方式、後續追蹤與風險）
-              </option>
-              <option value="custom">4. 自訂分析指令（自行撰寫 Prompt）</option>
             </select>
-          </div>
-
-          <!-- 動態展開：自訂分析指令輸入框 -->
-          <div id="custom-prompt-wrapper" class="hidden">
-            <label
-              for="custom-prompt-input"
-              class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >自訂分析指令 (System Prompt)</label
-            >
-            <textarea
-              id="custom-prompt-input"
-              rows="3"
-              placeholder="請輸入您希望 AI 如何整理這段對話，例如：請用條列式整理出雙方達成的共識、待確認事項，並以表格列出時間軸..."
-              class="w-full px-3.5 py-2.5 text-sm bg-teal-50/30 border border-teal-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition resize-y"></textarea>
           </div>
 
           <!-- 2. .txt / .md 檔案拖曳 / 點擊上傳區 -->
@@ -752,7 +730,7 @@
                 尚未產生分析報告
               </h3>
               <p class="text-sm text-slate-500 max-w-sm leading-relaxed mb-5">
-                請於左側選擇分析模板，貼上對話逐字稿或上傳
+                請於左側貼上對話逐字稿或上傳
                 <code class="text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded"
                   >.txt</code
                 >
@@ -1113,19 +1091,8 @@
       }
 
       /* =========================================================
-         4. 對話輸入、模板切換與 .txt / .md 檔案拖曳上傳
+         4. 對話輸入與 .txt / .md 檔案拖曳上傳
          ========================================================= */
-      function handleTemplateChange() {
-        const selectVal = document.getElementById("template-select").value;
-        const customWrapper = document.getElementById("custom-prompt-wrapper");
-        if (selectVal === "custom") {
-          customWrapper.classList.remove("hidden");
-          document.getElementById("custom-prompt-input").focus();
-        } else {
-          customWrapper.classList.add("hidden");
-        }
-      }
-
       function updateCharCount() {
         const text = document.getElementById("transcript-input").value;
         document.getElementById("char-count").textContent =
@@ -1226,22 +1193,10 @@
           .getElementById("transcript-input")
           .value.trim();
         const template = document.getElementById("template-select").value;
-        const customPrompt = document
-          .getElementById("custom-prompt-input")
-          .value.trim();
 
         if (!transcript) {
           showToast("請先輸入對話逐字稿，或上傳 .txt / .md 檔案。", "warning");
           document.getElementById("transcript-input").focus();
-          return;
-        }
-
-        if (template === "custom" && !customPrompt) {
-          showToast(
-            "您選擇了「自訂分析指令」，請輸入您的分析需求。",
-            "warning",
-          );
-          document.getElementById("custom-prompt-input").focus();
           return;
         }
 
@@ -1263,7 +1218,7 @@
               account: appState.userAccount,
               password: appState.userPassword,
               template: template,
-              customPrompt: customPrompt,
+              customPrompt: "",
               transcript: transcript,
             }),
           });
