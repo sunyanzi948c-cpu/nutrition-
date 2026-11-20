@@ -294,7 +294,7 @@
             <input
               type="url"
               id="input-gas-url"
-              placeholder=""
+              placeholder="https://script.google.com/macros/s/xxxx/exec"
               class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition" />
           </div>
         </div>
@@ -325,7 +325,7 @@
     </div>
 
     <!-- =========================================================
-         畫面一：權限驗證登入頁 (Login View - 開發者自建帳號精簡版)
+         畫面一：權限驗證登入頁 (Login View - 正式版純帳密登入)
          ========================================================= -->
     <section
       id="login-view"
@@ -476,37 +476,6 @@
               </svg>
             </button>
 
-            <!-- 分隔線 -->
-            <div class="relative flex items-center py-1">
-              <div class="flex-grow border-t border-slate-200"></div>
-              <span class="flex-shrink mx-3 text-xs text-slate-400">或</span>
-              <div class="flex-grow border-t border-slate-200"></div>
-            </div>
-
-            <!-- 離線展示模式按鈕 -->
-            <button
-              type="button"
-              onclick="enterDemoMode()"
-              class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-medium text-sm rounded-xl border border-slate-200 flex items-center justify-center gap-2 transition">
-              <svg
-                class="w-4 h-4 text-teal-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              進入離線展示模式 (Demo)
-            </button>
-
             <!-- 帳號管理說明 -->
             <p class="text-center text-xs text-slate-400 pt-1">
               帳號由系統管理員統一建置，如需開通或解鎖請聯繫管理員。
@@ -573,7 +542,7 @@
 
           <!-- 右側：使用者狀態與操作按鈕 -->
           <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <!-- 登入者姓名與帳號 / Demo 標籤 -->
+            <!-- 登入者姓名與帳號標籤 -->
             <div
               id="user-badge"
               class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
@@ -1015,6 +984,7 @@
       /* =========================================================
          1. 系統設定區
             - GAS_API_URL：Google Apps Script 網頁應用程式 (/exec)
+            （部署前請確認此網址與你最新版本的 GAS /exec 網址一致）
          ========================================================= */
       const GAS_API_URL =
         "https://script.google.com/macros/s/AKfycbwdxsbIc84H6YpcUL7DsRK4O15s8oi10mHMF608wRqqh4mTwDa6GLQJeQ9xeXYgk9nGtw/exec";
@@ -1022,13 +992,12 @@
       // 本機與工作階段儲存鍵名
       const STORAGE_KEYS = {
         GAS_URL: "ai_dialogue_platform_gas_url",
-        SESSION: "ai_dialogue_platform_session_v2",
+        SESSION: "ai_dialogue_platform_session_v3",
       };
 
       // 應用程式執行狀態
       const appState = {
         isLoggedIn: false,
-        isDemoMode: false,
         userName: "",
         userAccount: "",
         userRole: "user",
@@ -1038,7 +1007,7 @@
         isAnalyzing: false,
       };
 
-      // 內建簡短衛教對話範例（供快速測試）
+      // 內建簡短衛教對話範例（供快速測試真實 AI 分析）
       const SAMPLE_DIALOGUE = `00:00:01 衛教師
 最近有沒有住院或身體不舒服的情況？吃藥的部分還順利嗎？
 00:00:08 個案
@@ -1127,7 +1096,6 @@
               password: appState.userPassword,
               name: appState.userName,
               role: appState.userRole,
-              isDemo: appState.isDemoMode,
             }),
           );
         } catch (err) {
@@ -1140,11 +1108,10 @@
           const raw = sessionStorage.getItem(STORAGE_KEYS.SESSION);
           if (!raw) return;
           const saved = JSON.parse(raw);
-          if (saved && (saved.isDemo || (saved.account && saved.password))) {
+          if (saved && saved.account && saved.password) {
             appState.isLoggedIn = true;
-            appState.isDemoMode = Boolean(saved.isDemo);
-            appState.userAccount = saved.account || "";
-            appState.userPassword = saved.password || "";
+            appState.userAccount = saved.account;
+            appState.userPassword = saved.password;
             appState.userName = saved.name || "";
             appState.userRole = saved.role || "user";
             switchToWorkspace();
@@ -1168,7 +1135,7 @@
 
         if (isPlaceholderUrl(gasUrl)) {
           showToast(
-            "尚未設定 GAS 後端網址！請替換程式碼中的 GAS_API_URL，或先點擊「進入離線展示模式 (Demo)」體驗。",
+            "尚未設定 GAS 後端網址！請替換程式碼中的 GAS_API_URL，或點擊右上角齒輪進行設定。",
             "warning",
           );
           return;
@@ -1199,7 +1166,6 @@
           // 對應 GAS 後端回傳格式：{ status: 'success', user: { name, email(account), role } }
           if (result.status === "success" && result.user) {
             appState.isLoggedIn = true;
-            appState.isDemoMode = false;
             appState.userName = result.user.name || "";
             appState.userAccount = result.user.email || account;
             appState.userRole = result.user.role || "user";
@@ -1227,24 +1193,8 @@
         }
       }
 
-      function enterDemoMode() {
-        appState.isLoggedIn = true;
-        appState.isDemoMode = true;
-        appState.userName = "訪客展示";
-        appState.userAccount = "demo";
-        appState.userRole = "demo";
-        appState.userPassword = "";
-        saveSession();
-        switchToWorkspace();
-        showToast(
-          "已進入離線展示模式，可完整測試上傳、模擬 AI 分析與匯出功能。",
-          "info",
-        );
-      }
-
       function handleLogout() {
         appState.isLoggedIn = false;
-        appState.isDemoMode = false;
         appState.userName = "";
         appState.userAccount = "";
         appState.userRole = "user";
@@ -1267,22 +1217,15 @@
         const mobileBadgeEl = document.getElementById("mobile-user-badge");
         const statusDotEl = document.getElementById("user-status-dot");
 
-        if (appState.isDemoMode) {
-          displayNameEl.textContent = "離線展示模式 (Demo)";
-          mobileBadgeEl.textContent = "Demo 模式";
-          statusDotEl.className =
-            "w-2 h-2 rounded-full bg-amber-500 flex-shrink-0";
-        } else {
-          const roleTag = appState.userRole === "admin" ? " [管理員]" : "";
-          const fullLabel = appState.userName
-            ? `${appState.userName} (${appState.userAccount})${roleTag}`
-            : `${appState.userAccount}${roleTag}`;
-          displayNameEl.textContent = fullLabel;
-          displayNameEl.title = fullLabel;
-          mobileBadgeEl.textContent = appState.userName || appState.userAccount;
-          statusDotEl.className =
-            "w-2 h-2 rounded-full bg-teal-500 flex-shrink-0";
-        }
+        const roleTag = appState.userRole === "admin" ? " [管理員]" : "";
+        const fullLabel = appState.userName
+          ? `${appState.userName} (${appState.userAccount})${roleTag}`
+          : `${appState.userAccount}${roleTag}`;
+        displayNameEl.textContent = fullLabel;
+        displayNameEl.title = fullLabel;
+        mobileBadgeEl.textContent = appState.userName || appState.userAccount;
+        statusDotEl.className =
+          "w-2 h-2 rounded-full bg-teal-500 flex-shrink-0";
       }
 
       function setLoginLoading(isLoading) {
@@ -1399,7 +1342,7 @@
       }
 
       /* =========================================================
-         5. 呼叫 GAS API 或執行 Demo 模擬分析
+         5. 呼叫 GAS API 執行 AI 分析
          ========================================================= */
       async function handleAnalyze() {
         if (appState.isAnalyzing) return;
@@ -1427,29 +1370,14 @@
           return;
         }
 
-        setAnalyzingState(true);
-
-        if (appState.isDemoMode) {
-          setTimeout(() => {
-            const demoMarkdown = generateDemoReport(
-              template,
-              customPrompt,
-              transcript,
-            );
-            displayMarkdownResult(demoMarkdown);
-            setAnalyzingState(false);
-            showToast("Demo 模擬分析完成！", "success");
-          }, 1500);
-          return;
-        }
-
         const gasUrl = getActiveGasUrl();
         if (isPlaceholderUrl(gasUrl)) {
-          setAnalyzingState(false);
           resetOutputView();
           showToast("尚未設定 GAS 後端網址，無法呼叫 AI 分析。", "error");
           return;
         }
+
+        setAnalyzingState(true);
 
         try {
           const response = await fetch(gasUrl, {
@@ -1514,94 +1442,6 @@
           document.getElementById("raw-container").classList.add("hidden");
           document.getElementById("loading-state").classList.remove("hidden");
         }
-      }
-
-      function generateDemoReport(template, customPrompt, transcript) {
-        const charLen = transcript.length;
-        const nowStr = new Date().toLocaleString("zh-TW", { hour12: false });
-
-        if (template === "medical") {
-          return `# 衛教與門診追蹤紀錄摘要（Demo 展示報告）
-
-> **分析時間**：${nowStr} ｜ **逐字稿字數**：${charLen} 字 ｜ **分析模式**：醫療／衛教門診追蹤
-
-## 一、 回診與用藥銜接狀況
-* **近期住院史**：無住院紀錄。
-* **斷藥情形**：原訂 23 日回診，因遇颱風假順延至 28 日才領藥，導致中間出現約 **5 天斷藥空窗期**。
-* **衛教提醒**：未來若遇天災或連假，於領藥期限前 **7 天內**皆可提早 1～4 天回診；若原主治醫師早診不克前往，可先掛晚診請其他醫師代開藥，避免影響飯後血糖穩定。
-
-## 二、 關鍵數值與生活／飲品習慣
-| 項目 | 紀錄內容 | 評估備註 |
-| :--- | :--- | :--- |
-| **糖化血色素 (HbA1c)** | **7.9%** | 與前次相同，尚未下降 |
-| **酒精／提神飲品** | 已停喝保力達數個月 | 正向改變（配合公司工安規定） |
-| **日常飲品** | 無糖黑咖啡 ~1,000 cc、白開水 ~1,000 cc | 水分攝取充足；偶爾疲累時會喝少量含糖飲料 |
-
-## 三、 三餐與飲食紀錄
-* **早餐（約 07:00，固定）**：早餐店鍋燒泡麵（含蛋、肉片、丸子、魚板等加工品＋一湯匙玉米）搭配**一小杯含糖咖啡牛奶**。
-* **午餐（公司員工餐廳）**：飯量極少（約 1/4 碗），青菜量足，主菜多為豬肉料理（滷豬腿、烤豬排、肋排等）。
-* **晚餐（家中自煮）**：飯量較多（1～1.5 碗），配菜以葉菜類、蛋、豆干為主，肉類蛋白質偏少。
-* **水果攝取**：以蘋果、香蕉為主，香蕉每日攝取量可達 **2～3 根**（碳水化合物偏高）。
-
-## 四、 用藥核對與異常症狀
-* **疑似低血糖表現**：個案提及偶有午餐前肌肉或心臟抖動感（較少冒冷汗），與低血糖前兆（心悸、手抖、無力）高度相似。
-
-## 五、 衛教重點與後續追蹤建議
-1. **調整精緻糖與澱粉分配**：建議早餐咖啡牛奶改為無糖鮮奶茶或無糖拿鐵，並減少加工火鍋料與玉米（屬全穀雜糧類）攝取。
-2. **水果份量控制**：香蕉建議每日控制在 **1 根以內**（或分次食用），避免單次血糖大幅波動。
-3. **均衡晚餐蛋白質**：晚餐可適度減少白飯至 0.8～1 碗，並增加豆腐、魚類或雞肉等優質蛋白質。`;
-        }
-
-        if (template === "meeting") {
-          return `# 會議紀錄重點摘要（Demo 展示報告）
-
-> **分析時間**：${nowStr} ｜ **逐字稿字數**：${charLen} 字 ｜ **分析模式**：一般會議紀錄摘要
-
-## 一、 會議核心重點
-* 本次對話主要針對目前作業流程中的時間銜接問題與現況數據進行檢視。
-* 雙方已針對突發狀況（如不可抗力之停班停課）確認了提前因應的彈性處理機制。
-
-## 二、 決議事項
-1. **建立提前備援機制**：未來凡遇連假或天候異常預報，提前 1～4 日啟動替代方案。
-2. **維持既有正向改善**：持續保持目前已戒除之高風險習慣，確保現場作業安全。
-
-## 三、 待辦清單 (Action Items)
-| 負責對象 | 待辦事項 | 預期目標 |
-| :--- | :--- | :--- |
-| **主責人員** | 落實提前排程提醒與替代方案銜接 | 避免作業空窗期再次發生 |
-| **相關參與者** | 調整日常執行細節並記錄異常感受 | 於下次追蹤會議回報改善成效 |`;
-        }
-
-        if (template === "service") {
-          return `# 客服／諮詢對話分析報告（Demo 展示報告）
-
-> **分析時間**：${nowStr} ｜ **逐字稿字數**：${charLen} 字 ｜ **分析模式**：客服／諮詢對話分析
-
-## 一、 客戶核心需求與現況
-* 客戶因突發外部因素（天候停班）導致原訂服務／領取排程延誤 5 天。
-* 客戶已嘗試配合部分規範調整行為，但核心指標目前仍維持原狀，尚未見明顯改善。
-
-## 二、 痛點與潛在風險
-* **排程彈性不足**：客戶不清楚可提前預約或使用替代時段（晚間服務）。
-* **異常訊號未明確識別**：過程中曾出現不適前兆，但客戶缺乏判斷標準，可能延誤處理。
-
-## 三、 處理結果與後續追蹤建議
-* **當下處置**：服務人員已清楚說明「提前 7 日內皆可預約」及「替代時段」之彈性規則。
-* **後續追蹤**：建議於下次聯絡時，主動關心客戶對替代時段的使用滿意度，並提供簡易的自我檢核表。`;
-        }
-
-        return `# 自訂分析報告（Demo 展示報告）
-
-> **分析時間**：${nowStr} ｜ **逐字稿字數**：${charLen} 字
-> **套用指令**：${customPrompt}
-
-## 分析結果摘要
-* 目前處於**離線展示模式 (Demo)**，系統已接收到您的自訂指令與對話內容。
-* 正式串接 Google Apps Script 與 Google AI Studio (Gemini API) 後，AI 將嚴格依照您的自訂 Prompt 進行深度語意解析，並即時回傳客製化的 Markdown 報告。
-
-### 偵測到的對話概況
-* **輸入內容長度**：約 ${charLen} 字
-* **建議下一步**：點擊右上角「API 設定」填入您的 GAS Web App URL，即可啟用真實 Gemini 模型進行分析。`;
       }
 
       /* =========================================================
