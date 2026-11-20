@@ -294,7 +294,7 @@
             <input
               type="url"
               id="input-gas-url"
-              placeholder="https://script.google.com/macros/s/xxxx/exec"
+              placeholder="https://script.google.com/macros/s/AKfycbzZ4-J61PTuyJZFclDBNHV6GZN5CcOZY0H7dRRaAm_x1aot6k8KNCwofVCfULirnnT4Tg/exec"
               class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition" />
           </div>
         </div>
@@ -1279,8 +1279,7 @@
             : `${appState.userAccount}${roleTag}`;
           displayNameEl.textContent = fullLabel;
           displayNameEl.title = fullLabel;
-          mobileBadgeEl.textContent =
-            appState.userName || appState.userAccount;
+          mobileBadgeEl.textContent = appState.userName || appState.userAccount;
           statusDotEl.className =
             "w-2 h-2 rounded-full bg-teal-500 flex-shrink-0";
         }
