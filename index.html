@@ -226,105 +226,6 @@
       class="no-print fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] pointer-events-none"></div>
 
     <!-- =========================================================
-         API 系統設定彈窗 (Modal)
-         ========================================================= -->
-    <div
-      id="config-modal"
-      class="no-print hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-      <div
-        class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden">
-        <div
-          class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70">
-          <div class="flex items-center gap-2.5">
-            <div
-              class="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
-              <svg
-                class="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-            </div>
-            <h3 class="text-lg font-bold text-slate-800">系統 API 設定</h3>
-          </div>
-          <button
-            type="button"
-            onclick="closeConfigModal()"
-            class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-        <div class="p-6 space-y-4">
-          <p
-            class="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/70">
-            此處設定會暫存於瀏覽器的
-            <code class="text-teal-700 font-medium">localStorage</code>
-            中，方便快速測試串接。正式部署至 GitHub Pages 時，建議直接修改
-            <code class="text-teal-700 font-medium">index.html</code> 內
-            <code class="text-teal-700 font-medium">&lt;script&gt;</code>
-            最上方的
-            <code class="text-teal-700 font-medium">GAS_API_URL</code>。
-          </p>
-          <div>
-            <label
-              for="input-gas-url"
-              class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Google Apps Script (GAS) Web App URL</label
-            >
-            <input
-              type="url"
-              id="input-gas-url"
-              placeholder="https://script.google.com/macros/s/xxxx/exec"
-              class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition" />
-          </div>
-        </div>
-        <div
-          class="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-100">
-          <button
-            type="button"
-            onclick="resetConfigToDefault()"
-            class="text-xs font-medium text-slate-500 hover:text-rose-600 transition px-2 py-1.5 rounded-lg">
-            恢復預設值
-          </button>
-          <div class="flex items-center gap-2.5">
-            <button
-              type="button"
-              onclick="closeConfigModal()"
-              class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
-              取消
-            </button>
-            <button
-              type="button"
-              onclick="saveConfigFromModal()"
-              class="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-xl hover:bg-teal-700 shadow-sm transition">
-              儲存設定
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- =========================================================
          畫面一：權限驗證登入頁 (Login View - 正式版純帳密登入)
          ========================================================= -->
     <section
@@ -336,31 +237,7 @@
           class="bg-white rounded-2xl shadow-lg shadow-slate-200/70 border border-slate-200/80 overflow-hidden">
           <!-- 卡片頂部品牌識別區 -->
           <div
-            class="px-6 pt-8 pb-6 text-center bg-gradient-to-b from-teal-50/60 to-white border-b border-slate-100 relative">
-            <!-- 右上角快捷設定按鈕 -->
-            <button
-              type="button"
-              onclick="openConfigModal()"
-              title="設定 GAS API 網址"
-              class="absolute top-4 right-4 p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition">
-              <svg
-                class="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-            </button>
-
+            class="px-6 pt-8 pb-6 text-center bg-gradient-to-b from-teal-50/60 to-white border-b border-slate-100">
             <div
               class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-md shadow-teal-600/20">
               <svg
@@ -540,7 +417,7 @@
             </div>
           </div>
 
-          <!-- 右側：使用者狀態與操作按鈕 -->
+          <!-- 右側：使用者狀態與登出按鈕 -->
           <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <!-- 登入者姓名與帳號標籤 -->
             <div
@@ -553,30 +430,6 @@
                 >admin</span
               >
             </div>
-
-            <!-- API 設定按鈕 -->
-            <button
-              type="button"
-              onclick="openConfigModal()"
-              class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition">
-              <svg
-                class="w-4 h-4 text-slate-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-              <span class="hidden sm:inline">API 設定</span>
-            </button>
 
             <!-- 登出按鈕 -->
             <button
@@ -956,14 +809,81 @@
               </p>
             </div>
 
-            <!-- 狀態 3：Markdown 渲染預覽區 -->
+            <!-- 狀態 3：常駐錯誤／額度已滿提示畫面 -->
+            <div
+              id="error-state"
+              class="hidden flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center">
+              <div
+                id="error-icon-wrapper"
+                class="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mb-4">
+                <svg
+                  class="w-8 h-8"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+              <h3
+                id="error-title"
+                class="text-lg font-bold text-slate-800 mb-2">
+                無法完成 AI 分析
+              </h3>
+              <p
+                id="error-description"
+                class="text-sm text-slate-600 max-w-md leading-relaxed mb-4">
+                系統暫時無法產生分析報告，請稍後再試。
+              </p>
+              <div
+                id="error-detail-box"
+                class="hidden w-full max-w-md text-left bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-5 text-xs text-slate-600 leading-relaxed break-words">
+                <span class="font-semibold text-slate-700 block mb-1"
+                  >系統回傳訊息：</span
+                >
+                <span id="error-detail-text"></span>
+              </div>
+              <p class="text-xs text-slate-400 mb-5">
+                您於左側輸入或上傳的逐字稿內容已完整保留，不會遺失。
+              </p>
+              <div class="flex flex-wrap items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onclick="handleAnalyze()"
+                  class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-sm transition">
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  重新嘗試分析
+                </button>
+                <button
+                  type="button"
+                  onclick="resetOutputView()"
+                  class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition">
+                  返回初始畫面
+                </button>
+              </div>
+            </div>
+
+            <!-- 狀態 4：Markdown 渲染預覽區 -->
             <div
               id="preview-container"
               class="hidden flex-1 p-6 sm:p-8 overflow-y-auto">
               <article id="markdown-output" class="markdown-body"></article>
             </div>
 
-            <!-- 狀態 4：Markdown 原始碼檢視區 -->
+            <!-- 狀態 5：Markdown 原始碼檢視區 -->
             <div
               id="raw-container"
               class="hidden flex-1 p-5 overflow-hidden flex flex-col">
@@ -984,16 +904,13 @@
       /* =========================================================
          1. 系統設定區
             - GAS_API_URL：Google Apps Script 網頁應用程式 (/exec)
-            （部署前請確認此網址與你最新版本的 GAS /exec 網址一致）
+            （若日後重新「新增部署」產生新網址，直接修改此處即可）
          ========================================================= */
       const GAS_API_URL =
         "https://script.google.com/macros/s/AKfycbwdxsbIc84H6YpcUL7DsRK4O15s8oi10mHMF608wRqqh4mTwDa6GLQJeQ9xeXYgk9nGtw/exec";
 
-      // 本機與工作階段儲存鍵名
-      const STORAGE_KEYS = {
-        GAS_URL: "ai_dialogue_platform_gas_url",
-        SESSION: "ai_dialogue_platform_session_v3",
-      };
+      // 工作階段儲存鍵名
+      const SESSION_STORAGE_KEY = "ai_dialogue_platform_session_v4";
 
       // 應用程式執行狀態
       const appState = {
@@ -1028,7 +945,7 @@
 冒冷汗比較少，但有幾次午餐前覺得肌肉跟心臟有點抖動，不太確定是不是低血糖。偶爾下午覺得累的時候會想喝一點含糖飲料補充糖分。`;
 
       /* =========================================================
-         2. 初始化與設定管理 (sessionStorage + localStorage)
+         2. 初始化
          ========================================================= */
       document.addEventListener("DOMContentLoaded", () => {
         if (typeof marked !== "undefined") {
@@ -1046,51 +963,13 @@
         return !url || url.trim() === "" || url.includes("請替換");
       }
 
-      function getActiveGasUrl() {
-        const savedGas = localStorage.getItem(STORAGE_KEYS.GAS_URL);
-        return savedGas && savedGas.trim() ? savedGas.trim() : GAS_API_URL;
-      }
-
-      function openConfigModal() {
-        const gasUrl = getActiveGasUrl();
-        document.getElementById("input-gas-url").value = isPlaceholderUrl(
-          gasUrl,
-        )
-          ? ""
-          : gasUrl;
-        document.getElementById("config-modal").classList.remove("hidden");
-      }
-
-      function closeConfigModal() {
-        document.getElementById("config-modal").classList.add("hidden");
-      }
-
-      function saveConfigFromModal() {
-        const gasUrl = document.getElementById("input-gas-url").value.trim();
-
-        if (gasUrl) {
-          localStorage.setItem(STORAGE_KEYS.GAS_URL, gasUrl);
-        } else {
-          localStorage.removeItem(STORAGE_KEYS.GAS_URL);
-        }
-
-        closeConfigModal();
-        showToast("GAS API 設定已儲存至本機瀏覽器。", "success");
-      }
-
-      function resetConfigToDefault() {
-        localStorage.removeItem(STORAGE_KEYS.GAS_URL);
-        closeConfigModal();
-        showToast("已清除暫存設定，恢復程式碼預設值。", "info");
-      }
-
       /* =========================================================
          3. 登入驗證、sessionStorage 狀態管理與切換工作台
          ========================================================= */
       function saveSession() {
         try {
           sessionStorage.setItem(
-            STORAGE_KEYS.SESSION,
+            SESSION_STORAGE_KEY,
             JSON.stringify({
               account: appState.userAccount,
               password: appState.userPassword,
@@ -1105,7 +984,7 @@
 
       function restoreSessionIfAvailable() {
         try {
-          const raw = sessionStorage.getItem(STORAGE_KEYS.SESSION);
+          const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
           if (!raw) return;
           const saved = JSON.parse(raw);
           if (saved && saved.account && saved.password) {
@@ -1117,7 +996,7 @@
             switchToWorkspace();
           }
         } catch (err) {
-          sessionStorage.removeItem(STORAGE_KEYS.SESSION);
+          sessionStorage.removeItem(SESSION_STORAGE_KEY);
         }
       }
 
@@ -1126,18 +1005,14 @@
 
         const account = document.getElementById("login-account").value.trim();
         const password = document.getElementById("login-password").value.trim();
-        const gasUrl = getActiveGasUrl();
 
         if (!account || !password) {
           showToast("請輸入完整的帳號與密碼。", "warning");
           return;
         }
 
-        if (isPlaceholderUrl(gasUrl)) {
-          showToast(
-            "尚未設定 GAS 後端網址！請替換程式碼中的 GAS_API_URL，或點擊右上角齒輪進行設定。",
-            "warning",
-          );
+        if (isPlaceholderUrl(GAS_API_URL)) {
+          showToast("系統尚未設定後端服務網址，請聯繫管理員。", "error");
           return;
         }
 
@@ -1145,7 +1020,7 @@
 
         try {
           // 使用 text/plain;charset=utf-8 避開 Google Apps Script 的 CORS 預檢 (OPTIONS) 問題
-          const response = await fetch(gasUrl, {
+          const response = await fetch(GAS_API_URL, {
             method: "POST",
             headers: {
               "Content-Type": "text/plain;charset=utf-8",
@@ -1185,7 +1060,7 @@
         } catch (error) {
           console.error("Login error:", error);
           showToast(
-            "無法連線至 GAS 驗證伺服器，請確認部署網址是否正確且存取權限為「所有人」。",
+            "無法連線至驗證伺服器，請檢查網路狀態或聯繫系統管理員。",
             "error",
           );
         } finally {
@@ -1201,7 +1076,7 @@
         appState.userPassword = "";
         appState.currentMarkdown = "";
 
-        sessionStorage.removeItem(STORAGE_KEYS.SESSION);
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
         document.getElementById("login-password").value = "";
         document.getElementById("workspace-view").classList.add("hidden");
         document.getElementById("login-view").classList.remove("hidden");
@@ -1342,7 +1217,7 @@
       }
 
       /* =========================================================
-         5. 呼叫 GAS API 執行 AI 分析
+         5. 呼叫 GAS API 執行 AI 分析（含額度用盡常駐錯誤顯示）
          ========================================================= */
       async function handleAnalyze() {
         if (appState.isAnalyzing) return;
@@ -1370,17 +1245,15 @@
           return;
         }
 
-        const gasUrl = getActiveGasUrl();
-        if (isPlaceholderUrl(gasUrl)) {
-          resetOutputView();
-          showToast("尚未設定 GAS 後端網址，無法呼叫 AI 分析。", "error");
+        if (isPlaceholderUrl(GAS_API_URL)) {
+          showErrorState("系統尚未設定後端服務網址，請聯繫管理員。");
           return;
         }
 
         setAnalyzingState(true);
 
         try {
-          const response = await fetch(gasUrl, {
+          const response = await fetch(GAS_API_URL, {
             method: "POST",
             headers: {
               "Content-Type": "text/plain;charset=utf-8",
@@ -1406,22 +1279,86 @@
             displayMarkdownResult(result.result);
             showToast("AI 分析整理完成！", "success");
           } else {
-            resetOutputView();
+            const errMsg =
+              result.message || "AI 分析失敗，請稍後再試或聯繫系統管理員。";
+            showErrorState(errMsg);
             showToast(
-              result.message || "AI 分析失敗，請稍後再試或檢查後端日誌。",
+              isQuotaError(errMsg)
+                ? "AI 免費分析額度已達上限，詳情請見右側提示。"
+                : errMsg,
               "error",
             );
           }
         } catch (error) {
           console.error("Analyze error:", error);
-          resetOutputView();
-          showToast(
-            "連線至後端分析服務失敗，請檢查網路或 GAS 部署設定。",
-            "error",
-          );
+          const netMsg =
+            "無法連線至後端分析服務，請確認網路連線是否正常，或稍後再試。";
+          showErrorState(netMsg, error.message);
+          showToast(netMsg, "error");
         } finally {
           setAnalyzingState(false);
         }
+      }
+
+      /**
+       * 判斷是否為免費 API 額度上限或頻率限制 (HTTP 429 / Quota / Resource Exhausted)
+       */
+      function isQuotaError(message) {
+        const text = String(message || "").toLowerCase();
+        return (
+          text.includes("429") ||
+          text.includes("quota") ||
+          text.includes("resource_exhausted") ||
+          text.includes("rate limit") ||
+          text.includes("額度") ||
+          text.includes("上限")
+        );
+      }
+
+      /**
+       * 在右側報告區常駐顯示錯誤或額度已滿提示卡片
+       */
+      function showErrorState(rawMessage, technicalDetail = "") {
+        appState.currentMarkdown = "";
+        document.getElementById("markdown-output").innerHTML = "";
+        document.getElementById("raw-markdown-output").value = "";
+
+        document.getElementById("empty-state").classList.add("hidden");
+        document.getElementById("loading-state").classList.add("hidden");
+        document.getElementById("preview-container").classList.add("hidden");
+        document.getElementById("raw-container").classList.add("hidden");
+
+        const iconWrapper = document.getElementById("error-icon-wrapper");
+        const titleEl = document.getElementById("error-title");
+        const descEl = document.getElementById("error-description");
+        const detailBox = document.getElementById("error-detail-box");
+        const detailText = document.getElementById("error-detail-text");
+
+        if (isQuotaError(rawMessage)) {
+          iconWrapper.className =
+            "w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mb-4";
+          titleEl.textContent = "目前 AI 免費分析額度已達上限";
+          descEl.textContent =
+            "短時間內使用過於頻繁，或今日的免費 AI 分析次數已全部用盡。建議您先稍候 1 分鐘後點擊下方「重新嘗試分析」；若仍顯示此訊息，代表今日免費額度已滿，請於隔日再試或聯繫管理員。";
+        } else {
+          iconWrapper.className =
+            "w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mb-4";
+          titleEl.textContent = "AI 分析未能完成";
+          descEl.textContent =
+            "系統在處理這筆對話時發生異常，請檢視下方系統回傳訊息後再重試，或聯繫管理員協助處理。";
+        }
+
+        const displayDetail = technicalDetail
+          ? `${rawMessage}（${technicalDetail}）`
+          : rawMessage;
+        if (displayDetail) {
+          detailText.textContent = displayDetail;
+          detailBox.classList.remove("hidden");
+        } else {
+          detailBox.classList.add("hidden");
+        }
+
+        document.getElementById("error-state").classList.remove("hidden");
       }
 
       function setAnalyzingState(isLoading) {
@@ -1438,6 +1375,7 @@
 
         if (isLoading) {
           document.getElementById("empty-state").classList.add("hidden");
+          document.getElementById("error-state").classList.add("hidden");
           document.getElementById("preview-container").classList.add("hidden");
           document.getElementById("raw-container").classList.add("hidden");
           document.getElementById("loading-state").classList.remove("hidden");
@@ -1460,6 +1398,7 @@
 
         document.getElementById("loading-state").classList.add("hidden");
         document.getElementById("empty-state").classList.add("hidden");
+        document.getElementById("error-state").classList.add("hidden");
 
         setOutputViewMode(appState.outputViewMode);
       }
@@ -1469,6 +1408,7 @@
         document.getElementById("markdown-output").innerHTML = "";
         document.getElementById("raw-markdown-output").value = "";
         document.getElementById("loading-state").classList.add("hidden");
+        document.getElementById("error-state").classList.add("hidden");
         document.getElementById("preview-container").classList.add("hidden");
         document.getElementById("raw-container").classList.add("hidden");
         document.getElementById("empty-state").classList.remove("hidden");
@@ -1598,6 +1538,7 @@
         };
 
         const style = styles[type] || styles.info;
+        const duration = type === "error" || type === "warning" ? 6000 : 3500;
 
         toast.className = `pointer-events-auto flex items-start gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all duration-300 transform translate-x-4 opacity-0 ${style.bg}`;
         toast.innerHTML = `
@@ -1614,7 +1555,7 @@
         setTimeout(() => {
           toast.classList.add("translate-x-4", "opacity-0");
           setTimeout(() => toast.remove(), 300);
-        }, 3500);
+        }, duration);
       }
 
       function escapeHtml(str) {
