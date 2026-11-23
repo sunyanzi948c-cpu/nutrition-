@@ -121,8 +121,8 @@
       .markdown-body table {
         width: 100%;
         border-collapse: collapse;
-        margin: 1.25rem 0;
-        font-size: 0.9rem;
+        margin: 1rem 0 1.25rem 0;
+        font-size: 0.88rem;
         overflow-x: auto;
         display: block;
       }
@@ -136,11 +136,12 @@
         color: #0f172a;
         font-weight: 600;
         text-align: left;
-        padding: 0.65rem 0.85rem;
+        padding: 0.6rem 0.8rem;
         border: 1px solid #cbd5e1;
+        white-space: nowrap;
       }
       .markdown-body td {
-        padding: 0.65rem 0.85rem;
+        padding: 0.6rem 0.8rem;
         border: 1px solid #e2e8f0;
         vertical-align: top;
       }
@@ -209,9 +210,17 @@
           overflow: visible !important;
           padding: 0 !important;
         }
-        .markdown-body h2 {
+        .markdown-body h2,
+        .markdown-body th {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
+        }
+        .markdown-body table {
+          display: table !important;
+          page-break-inside: auto;
+        }
+        .markdown-body tr {
+          page-break-inside: avoid;
         }
       }
     </style>
@@ -375,8 +384,9 @@
               d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
           </svg>
           <p>
-            <strong>個資保護提醒：</strong>上傳醫療衛教或訪談逐字稿進行 AI
-            分析前，請務必先移除真實姓名、身分證字號、病歷號、電話等個人敏感識別資訊，以維護隱私安全。
+            <strong>個資保護提醒：</strong>上傳醫療衛教逐字稿或生化檢驗報告進行
+            AI
+            分析前，請務必先移除或遮蔽真實姓名、身分證字號、病歷號、電話等個人敏感識別資訊，以維護隱私安全。
           </p>
         </div>
       </div>
@@ -485,12 +495,120 @@
               id="template-select"
               class="w-full px-3.5 py-2.5 text-sm bg-slate-50/70 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition cursor-pointer">
               <option value="medical">
-                1. 醫療／衛教門診追蹤（用藥、血糖、飲食、症狀與建議）
+                1. 醫療／衛教門診追蹤（整合檢驗數值、用藥、飲食與建議）
               </option>
             </select>
           </div>
 
-          <!-- 2. .txt / .md 檔案拖曳 / 點擊上傳區 -->
+          <!-- 2. 對話紀錄日期（手動輸入，用於對照生化檢驗報告採檢日期） -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label
+                for="dialogue-date"
+                class="text-sm font-semibold text-slate-700"
+                >對話紀錄日期</label
+              >
+              <button
+                type="button"
+                onclick="setDialogueDateToday()"
+                class="text-xs font-medium text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-2.5 py-0.5 rounded-lg transition">
+                設為今天
+              </button>
+            </div>
+            <input
+              type="date"
+              id="dialogue-date"
+              class="w-full px-3.5 py-2.5 text-sm bg-slate-50/70 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition" />
+            <p class="mt-1 text-xs text-slate-400">
+              AI 將以此日期與生化檢驗報告的「採檢／開單日期」比對時間先後。
+            </p>
+          </div>
+
+          <!-- 3. 上傳生化檢驗報告 (.pdf / .jpg / .png) - 選填 -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-sm font-semibold text-slate-700">
+                上傳生化檢驗報告
+                <span class="text-xs font-normal text-slate-400"
+                  >(選填，支援 PDF / 圖片)</span
+                >
+              </label>
+              <button
+                type="button"
+                id="btn-clear-lab"
+                onclick="clearLabReport()"
+                class="hidden text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-0.5 rounded-lg transition">
+                移除報告
+              </button>
+            </div>
+            <div
+              id="lab-dropzone"
+              onclick="document.getElementById('lab-file-input').click()"
+              class="border-2 border-dashed border-slate-300 hover:border-teal-500 hover:bg-teal-50/30 rounded-xl p-4 text-center cursor-pointer transition group">
+              <input
+                type="file"
+                id="lab-file-input"
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                class="hidden"
+                onchange="handleLabFileSelect(event)" />
+              <div class="flex flex-col items-center justify-center gap-1.5">
+                <svg
+                  id="lab-icon-default"
+                  class="w-7 h-7 text-slate-400 group-hover:text-teal-600 transition"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                    d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <svg
+                  id="lab-icon-loaded"
+                  class="hidden w-7 h-7 text-teal-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p
+                  id="lab-status-title"
+                  class="text-sm text-slate-600 font-medium">
+                  點擊選擇檔案，或將
+                  <span class="text-teal-700 font-semibold"
+                    >.pdf / .jpg / .png</span
+                  >
+                  拖曳至此
+                </p>
+                <p id="lab-status-sub" class="text-xs text-slate-400">
+                  上限 5 MB；系統會自動隱藏原始檔名以保護隱私
+                </p>
+              </div>
+            </div>
+            <p class="mt-1.5 text-xs text-amber-700/90 flex items-start gap-1">
+              <svg
+                class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+              <span
+                >建議上傳前遮蔽報告表頭姓名與病歷號；AI 輸出時亦會自動隱藏個資。</span
+              >
+            </p>
+          </div>
+
+          <!-- 4. .txt / .md 對話文字檔拖曳 / 點擊上傳區 -->
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1.5"
               >上傳對話文字檔 (.txt / .md)</label
@@ -529,7 +647,7 @@
             </div>
           </div>
 
-          <!-- 3. 對話逐字稿輸入框 -->
+          <!-- 5. 對話逐字稿輸入框 -->
           <div class="flex-1 flex flex-col">
             <div class="flex items-center justify-between mb-1.5">
               <label
@@ -554,9 +672,9 @@
             </div>
             <textarea
               id="transcript-input"
-              rows="10"
+              rows="9"
               oninput="updateCharCount()"
-              placeholder="請在此貼上兩人或多人對話逐字稿，或使用上方功能上傳 .txt / .md 檔案..."
+              placeholder="請在此貼上衛教／門診對話逐字稿，或使用上方功能上傳 .txt / .md 檔案..."
               class="w-full px-3.5 py-3 text-sm leading-relaxed bg-slate-50/50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 outline-none transition resize-y"></textarea>
             <div
               class="flex items-center justify-between mt-1.5 text-xs text-slate-400">
@@ -567,7 +685,7 @@
             </div>
           </div>
 
-          <!-- 4. 主要行動按鈕：開始 AI 分析整理 -->
+          <!-- 6. 主要行動按鈕：開始 AI 分析整理 -->
           <button
             type="button"
             id="btn-analyze"
@@ -611,7 +729,7 @@
              ================================================= -->
         <div
           id="output-panel"
-          class="lg:col-span-7 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 min-h-[580px] lg:min-h-[700px] overflow-hidden">
+          class="lg:col-span-7 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 min-h-[620px] lg:min-h-[760px] overflow-hidden">
           <!-- 頂部工具列 -->
           <div
             class="no-print flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 bg-slate-50/80 border-b border-slate-200">
@@ -730,11 +848,8 @@
                 尚未產生分析報告
               </h3>
               <p class="text-sm text-slate-500 max-w-sm leading-relaxed mb-5">
-                請於左側貼上對話逐字稿或上傳
-                <code class="text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded"
-                  >.txt</code
-                >
-                檔案，再點擊「開始 AI 分析整理」。
+                請於左側設定對話日期、貼上對話逐字稿（可選填上傳生化檢驗報告
+                PDF／圖片），再點擊「開始 AI 分析整理」。
               </p>
               <button
                 type="button"
@@ -779,10 +894,12 @@
                   </svg>
                 </div>
               </div>
-              <h3 class="text-base font-bold text-slate-800 mb-1">
+              <h3
+                id="loading-title"
+                class="text-base font-bold text-slate-800 mb-1">
                 AI 正在深度分析對話內容...
               </h3>
-              <p class="text-sm text-slate-500">
+              <p id="loading-desc" class="text-sm text-slate-500">
                 正在擷取重點資訊並產生結構化報告，請稍候片刻
               </p>
             </div>
@@ -825,7 +942,7 @@
                 <span id="error-detail-text"></span>
               </div>
               <p class="text-xs text-slate-400 mb-5">
-                您於左側輸入或上傳的逐字稿內容已完整保留，不會遺失。
+                您於左側輸入的逐字稿與已上傳的檢驗報告皆已完整保留，不會遺失。
               </p>
               <div class="flex flex-wrap items-center justify-center gap-2.5">
                 <button
@@ -887,8 +1004,11 @@
       const GAS_API_URL =
         "https://script.google.com/macros/s/AKfycbwdxsbIc84H6YpcUL7DsRK4O15s8oi10mHMF608wRqqh4mTwDa6GLQJeQ9xeXYgk9nGtw/exec";
 
+      // 生化檢驗報告檔案容量上限 (5 MB)
+      const MAX_LAB_FILE_BYTES = 5 * 1024 * 1024;
+
       // 工作階段儲存鍵名
-      const SESSION_STORAGE_KEY = "ai_dialogue_platform_session_v4";
+      const SESSION_STORAGE_KEY = "ai_dialogue_platform_session_v5";
 
       // 應用程式執行狀態
       const appState = {
@@ -897,6 +1017,8 @@
         userAccount: "",
         userRole: "user",
         userPassword: "",
+        labReportBase64: "",
+        labReportMimeType: "",
         currentMarkdown: "",
         outputViewMode: "preview", // 'preview' | 'raw'
         isAnalyzing: false,
@@ -932,13 +1054,29 @@
             gfm: true,
           });
         }
+        setDialogueDateToday();
         setupDragAndDrop();
+        setupLabDragAndDrop();
         updateCharCount();
         restoreSessionIfAvailable();
       });
 
       function isPlaceholderUrl(url) {
         return !url || url.trim() === "" || url.includes("請替換");
+      }
+
+      /**
+       * 取得本地今日日期字串 (YYYY-MM-DD) 並填入對話日期欄位
+       */
+      function setDialogueDateToday() {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        const dateInput = document.getElementById("dialogue-date");
+        if (dateInput) {
+          dateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
       }
 
       /* =========================================================
@@ -997,7 +1135,6 @@
         setLoginLoading(true);
 
         try {
-          // 使用 text/plain;charset=utf-8 避開 Google Apps Script 的 CORS 預檢 (OPTIONS) 問題
           const response = await fetch(GAS_API_URL, {
             method: "POST",
             headers: {
@@ -1016,7 +1153,6 @@
 
           const result = await response.json();
 
-          // 對應 GAS 後端回傳格式：{ status: 'success', user: { name, email(account), role } }
           if (result.status === "success" && result.user) {
             appState.isLoggedIn = true;
             appState.userName = result.user.name || "";
@@ -1056,6 +1192,7 @@
 
         sessionStorage.removeItem(SESSION_STORAGE_KEY);
         document.getElementById("login-password").value = "";
+        clearLabReport(true);
         document.getElementById("workspace-view").classList.add("hidden");
         document.getElementById("login-view").classList.remove("hidden");
         resetOutputView();
@@ -1091,7 +1228,154 @@
       }
 
       /* =========================================================
-         4. 對話輸入與 .txt / .md 檔案拖曳上傳
+         4A. 生化檢驗報告上傳處理 (.pdf / .jpg / .png -> Base64)
+             ※ 不保存、不顯示、不傳送原始檔名以防敏感資訊外洩
+         ========================================================= */
+      function setupLabDragAndDrop() {
+        const dropzone = document.getElementById("lab-dropzone");
+        if (!dropzone) return;
+
+        ["dragenter", "dragover"].forEach((evtName) => {
+          dropzone.addEventListener(evtName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add("dropzone-active");
+          });
+        });
+
+        ["dragleave", "drop"].forEach((evtName) => {
+          dropzone.addEventListener(evtName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove("dropzone-active");
+          });
+        });
+
+        dropzone.addEventListener("drop", (e) => {
+          const files = e.dataTransfer.files;
+          if (files && files.length > 0) {
+            processLabFile(files[0]);
+          }
+        });
+      }
+
+      function handleLabFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+          processLabFile(file);
+        }
+      }
+
+      function resolveLabMimeType(file) {
+        const mime = (file.type || "").toLowerCase();
+        if (mime === "application/pdf") return "application/pdf";
+        if (mime === "image/jpeg" || mime === "image/jpg") return "image/jpeg";
+        if (mime === "image/png") return "image/png";
+
+        const lowerName = (file.name || "").toLowerCase();
+        if (lowerName.endsWith(".pdf")) return "application/pdf";
+        if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) {
+          return "image/jpeg";
+        }
+        if (lowerName.endsWith(".png")) return "image/png";
+        return "";
+      }
+
+      function processLabFile(file) {
+        const mimeType = resolveLabMimeType(file);
+        if (!mimeType) {
+          showToast(
+            "檢驗報告僅支援上傳 .pdf、.jpg 或 .png 格式檔案。",
+            "error",
+          );
+          document.getElementById("lab-file-input").value = "";
+          return;
+        }
+
+        if (file.size > MAX_LAB_FILE_BYTES) {
+          showToast(
+            "檔案大小超過 5 MB 上限，請壓縮後再重新上傳。",
+            "error",
+          );
+          document.getElementById("lab-file-input").value = "";
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = String(e.target.result || "");
+          const commaIdx = dataUrl.indexOf(",");
+          if (commaIdx === -1) {
+            showToast("檔案讀取異常，請重新選擇檢驗報告。", "error");
+            return;
+          }
+
+          appState.labReportBase64 = dataUrl.slice(commaIdx + 1);
+          appState.labReportMimeType = mimeType;
+
+          const sizeLabel =
+            file.size >= 1024 * 1024
+              ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+              : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+          const typeLabel =
+            mimeType === "application/pdf" ? "PDF 檢驗報告" : "圖片檢驗報告";
+
+          document.getElementById("lab-icon-default").classList.add("hidden");
+          document
+            .getElementById("lab-icon-loaded")
+            .classList.remove("hidden");
+          const titleEl = document.getElementById("lab-status-title");
+          titleEl.textContent = `已載入生化檢驗報告（${typeLabel}，${sizeLabel}）`;
+          titleEl.className = "text-sm text-teal-700 font-semibold";
+
+          const subEl = document.getElementById("lab-status-sub");
+          subEl.textContent = "原始檔名已自動隱藏，分析時將一併進行數據判讀";
+          subEl.className = "text-xs text-teal-600";
+
+          const dropzone = document.getElementById("lab-dropzone");
+          dropzone.classList.add("border-teal-400", "bg-teal-50/40");
+          dropzone.classList.remove("border-slate-300");
+
+          document.getElementById("btn-clear-lab").classList.remove("hidden");
+          showToast("生化檢驗報告已成功載入，分析時將自動對照日期與數值。", "success");
+        };
+        reader.onerror = () => {
+          showToast("檢驗報告讀取失敗，請確認檔案是否損毀。", "error");
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function clearLabReport(silent = false) {
+        appState.labReportBase64 = "";
+        appState.labReportMimeType = "";
+
+        const fileInput = document.getElementById("lab-file-input");
+        if (fileInput) fileInput.value = "";
+
+        document.getElementById("lab-icon-default").classList.remove("hidden");
+        document.getElementById("lab-icon-loaded").classList.add("hidden");
+
+        const titleEl = document.getElementById("lab-status-title");
+        titleEl.innerHTML =
+          '點擊選擇檔案，或將 <span class="text-teal-700 font-semibold">.pdf / .jpg / .png</span> 拖曳至此';
+        titleEl.className = "text-sm text-slate-600 font-medium";
+
+        const subEl = document.getElementById("lab-status-sub");
+        subEl.textContent = "上限 5 MB；系統會自動隱藏原始檔名以保護隱私";
+        subEl.className = "text-xs text-slate-400";
+
+        const dropzone = document.getElementById("lab-dropzone");
+        dropzone.classList.remove("border-teal-400", "bg-teal-50/40");
+        dropzone.classList.add("border-slate-300");
+
+        document.getElementById("btn-clear-lab").classList.add("hidden");
+        if (!silent) {
+          showToast("已移除生化檢驗報告。", "info");
+        }
+      }
+
+      /* =========================================================
+         4B. 對話輸入與 .txt / .md 檔案拖曳上傳
          ========================================================= */
       function updateCharCount() {
         const text = document.getElementById("transcript-input").value;
@@ -1172,10 +1456,10 @@
           const content = e.target.result;
           document.getElementById("transcript-input").value = content;
           const fileNameEl = document.getElementById("file-name-display");
-          fileNameEl.textContent = `已載入檔案：${file.name}`;
+          fileNameEl.textContent = "已載入對話逐字稿檔案";
           fileNameEl.className = "text-xs text-teal-700 font-semibold";
           updateCharCount();
-          showToast(`成功載入檔案「${file.name}」！`, "success");
+          showToast("成功載入對話逐字稿檔案！", "success");
         };
         reader.onerror = () => {
           showToast("檔案讀取失敗，請確認檔案格式是否正常。", "error");
@@ -1184,7 +1468,7 @@
       }
 
       /* =========================================================
-         5. 呼叫 GAS API 執行 AI 分析（含額度用盡常駐錯誤顯示）
+         5. 呼叫 GAS API 執行 AI 分析（整合對話日期與檢驗報告）
          ========================================================= */
       async function handleAnalyze() {
         if (appState.isAnalyzing) return;
@@ -1193,9 +1477,18 @@
           .getElementById("transcript-input")
           .value.trim();
         const template = document.getElementById("template-select").value;
+        const dialogueDate = document
+          .getElementById("dialogue-date")
+          .value.trim();
+        const hasLabReport = Boolean(
+          appState.labReportBase64 && appState.labReportMimeType,
+        );
 
-        if (!transcript) {
-          showToast("請先輸入對話逐字稿，或上傳 .txt / .md 檔案。", "warning");
+        if (!transcript && !hasLabReport) {
+          showToast(
+            "請至少輸入對話逐字稿，或上傳一份生化檢驗報告。",
+            "warning",
+          );
           document.getElementById("transcript-input").focus();
           return;
         }
@@ -1205,7 +1498,7 @@
           return;
         }
 
-        setAnalyzingState(true);
+        setAnalyzingState(true, hasLabReport);
 
         try {
           const response = await fetch(GAS_API_URL, {
@@ -1219,7 +1512,10 @@
               password: appState.userPassword,
               template: template,
               customPrompt: "",
+              dialogueDate: dialogueDate,
               transcript: transcript,
+              labReportBase64: appState.labReportBase64 || "",
+              labReportMimeType: appState.labReportMimeType || "",
             }),
           });
 
@@ -1229,7 +1525,6 @@
 
           const result = await response.json();
 
-          // 對應 GAS 後端回傳格式：{ status: 'success', result: '...' }
           if (result.status === "success" && result.result) {
             displayMarkdownResult(result.result);
             showToast("AI 分析整理完成！", "success");
@@ -1251,13 +1546,10 @@
           showErrorState(netMsg, error.message);
           showToast(netMsg, "error");
         } finally {
-          setAnalyzingState(false);
+          setAnalyzingState(false, false);
         }
       }
 
-      /**
-       * 判斷是否為免費 API 額度上限或頻率限制 (HTTP 429 / Quota / Resource Exhausted)
-       */
       function isQuotaError(message) {
         const text = String(message || "").toLowerCase();
         return (
@@ -1270,9 +1562,6 @@
         );
       }
 
-      /**
-       * 在右側報告區常駐顯示錯誤或額度已滿提示卡片
-       */
       function showErrorState(rawMessage, technicalDetail = "") {
         appState.currentMarkdown = "";
         document.getElementById("markdown-output").innerHTML = "";
@@ -1300,7 +1589,7 @@
             "w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mb-4";
           titleEl.textContent = "AI 分析未能完成";
           descEl.textContent =
-            "系統在處理這筆對話時發生異常，請檢視下方系統回傳訊息後再重試，或聯繫管理員協助處理。";
+            "系統在處理這筆資料時發生異常，請檢視下方系統回傳訊息後再重試，或聯繫管理員協助處理。";
         }
 
         const displayDetail = technicalDetail
@@ -1316,7 +1605,7 @@
         document.getElementById("error-state").classList.remove("hidden");
       }
 
-      function setAnalyzingState(isLoading) {
+      function setAnalyzingState(isLoading, hasLabReport = false) {
         appState.isAnalyzing = isLoading;
         const btn = document.getElementById("btn-analyze");
         const icon = document.getElementById("analyze-icon");
@@ -1329,6 +1618,13 @@
         text.textContent = isLoading ? "AI 分析整理中..." : "開始 AI 分析整理";
 
         if (isLoading) {
+          document.getElementById("loading-title").textContent = hasLabReport
+            ? "AI 正在整合分析對話與生化檢驗報告..."
+            : "AI 正在深度分析對話內容...";
+          document.getElementById("loading-desc").textContent = hasLabReport
+            ? "正在判讀檢驗異常數值、比對日期時間點並產生結構化報告，請稍候片刻"
+            : "正在擷取重點資訊並產生結構化報告，請稍候片刻";
+
           document.getElementById("empty-state").classList.add("hidden");
           document.getElementById("error-state").classList.add("hidden");
           document.getElementById("preview-container").classList.add("hidden");
@@ -1434,8 +1730,11 @@
           return;
         }
 
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-        const filename = `AI對話分析報告_${dateStr}.md`;
+        const dateVal = document.getElementById("dialogue-date").value;
+        const dateStr = dateVal
+          ? dateVal.replace(/-/g, "")
+          : new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const filename = `AI衛教分析報告_${dateStr}.md`;
 
         const blob = new Blob([appState.currentMarkdown], {
           type: "text/markdown;charset=utf-8",
