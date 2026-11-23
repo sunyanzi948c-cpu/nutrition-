@@ -603,7 +603,8 @@
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
               </svg>
               <span
-                >建議上傳前遮蔽報告表頭姓名與病歷號；AI 輸出時亦會自動隱藏個資。</span
+                >建議上傳前遮蔽報告表頭姓名與病歷號；AI
+                輸出時亦會自動隱藏個資。</span
               >
             </p>
           </div>
@@ -1002,7 +1003,7 @@
             （若日後重新「新增部署」產生新網址，直接修改此處即可）
          ========================================================= */
       const GAS_API_URL =
-        "https://script.google.com/macros/s/AKfycbwdxsbIc84H6YpcUL7DsRK4O15s8oi10mHMF608wRqqh4mTwDa6GLQJeQ9xeXYgk9nGtw/exec";
+        "https://script.google.com/macros/s/AKfycbwiyhNWCwZJM8B7pvsvd5KiFbXVryt8alkz47KLtNe_Op3BEpEk8EJyNKUJNDc66UbyDQ/exec";
 
       // 生化檢驗報告檔案容量上限 (5 MB)
       const MAX_LAB_FILE_BYTES = 5 * 1024 * 1024;
@@ -1293,10 +1294,7 @@
         }
 
         if (file.size > MAX_LAB_FILE_BYTES) {
-          showToast(
-            "檔案大小超過 5 MB 上限，請壓縮後再重新上傳。",
-            "error",
-          );
+          showToast("檔案大小超過 5 MB 上限，請壓縮後再重新上傳。", "error");
           document.getElementById("lab-file-input").value = "";
           return;
         }
@@ -1321,9 +1319,7 @@
             mimeType === "application/pdf" ? "PDF 檢驗報告" : "圖片檢驗報告";
 
           document.getElementById("lab-icon-default").classList.add("hidden");
-          document
-            .getElementById("lab-icon-loaded")
-            .classList.remove("hidden");
+          document.getElementById("lab-icon-loaded").classList.remove("hidden");
           const titleEl = document.getElementById("lab-status-title");
           titleEl.textContent = `已載入生化檢驗報告（${typeLabel}，${sizeLabel}）`;
           titleEl.className = "text-sm text-teal-700 font-semibold";
@@ -1337,7 +1333,10 @@
           dropzone.classList.remove("border-slate-300");
 
           document.getElementById("btn-clear-lab").classList.remove("hidden");
-          showToast("生化檢驗報告已成功載入，分析時將自動對照日期與數值。", "success");
+          showToast(
+            "生化檢驗報告已成功載入，分析時將自動對照日期與數值。",
+            "success",
+          );
         };
         reader.onerror = () => {
           showToast("檢驗報告讀取失敗，請確認檔案是否損毀。", "error");
