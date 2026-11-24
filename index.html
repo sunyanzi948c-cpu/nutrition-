@@ -232,7 +232,307 @@
          ========================================================= -->
     <div
       id="toast-container"
-      class="no-print fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] pointer-events-none"></div>
+      class="no-print fixed top-4 right-4 z-[60] flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] pointer-events-none"></div>
+
+    <!-- =========================================================
+         管理員專用：分析使用紀錄 (Logs) 檢視彈窗
+         ========================================================= -->
+    <div
+      id="logs-modal"
+      onclick="handleLogsBackdropClick(event)"
+      class="no-print hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 backdrop-blur-sm p-3 sm:p-6">
+      <div
+        class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+        <!-- 彈窗頂部標題列 -->
+        <div
+          class="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex-shrink-0">
+          <div class="flex items-center gap-3 min-w-0">
+            <div
+              class="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center flex-shrink-0">
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <h3
+                class="text-base sm:text-lg font-bold text-slate-800 truncate">
+                AI 分析使用紀錄與額度統計
+              </h3>
+              <p class="text-xs text-slate-500 truncate">
+                管理員專用檢視・僅統計操作中繼資料（不含任何病患個資與報告內文）
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              id="btn-refresh-logs"
+              onclick="fetchAdminLogs()"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition disabled:opacity-60">
+              <svg
+                id="logs-refresh-icon"
+                class="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              <span>重新整理</span>
+            </button>
+            <button
+              type="button"
+              onclick="closeLogsModal()"
+              title="關閉視窗"
+              class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 rounded-xl transition">
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- 彈窗主體內容區 -->
+        <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+          <!-- Loading 狀態 -->
+          <div
+            id="logs-loading"
+            class="hidden py-16 flex flex-col items-center justify-center text-center">
+            <div
+              class="w-10 h-10 rounded-full border-4 border-teal-100 border-t-teal-600 animate-spin mb-3"></div>
+            <p class="text-sm font-medium text-slate-600">
+              正在從試算表讀取最新使用紀錄...
+            </p>
+          </div>
+
+          <!-- 錯誤狀態 -->
+          <div
+            id="logs-error"
+            class="hidden py-12 px-4 flex flex-col items-center justify-center text-center">
+            <div
+              class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mb-3">
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <p id="logs-error-msg" class="text-sm text-slate-600 max-w-md mb-4">
+              無法讀取使用紀錄，請稍後再試。
+            </p>
+            <button
+              type="button"
+              onclick="fetchAdminLogs()"
+              class="px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition">
+              重試讀取
+            </button>
+          </div>
+
+          <!-- 資料呈現區 -->
+          <div id="logs-content" class="hidden space-y-5">
+            <!-- 1. 摘要統計卡片 (4 欄) -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div
+                class="bg-teal-50/70 border border-teal-200/80 rounded-xl p-4">
+                <p class="text-xs font-medium text-teal-800">今日分析次數</p>
+                <p
+                  id="stat-today-count"
+                  class="text-2xl font-bold text-teal-700 mt-1">
+                  0
+                </p>
+                <p id="stat-today-sub" class="text-[11px] text-teal-600 mt-1">
+                  成功 0 次
+                </p>
+              </div>
+
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <p class="text-xs font-medium text-slate-600">累計分析總次數</p>
+                <p
+                  id="stat-total-count"
+                  class="text-2xl font-bold text-slate-800 mt-1">
+                  0
+                </p>
+                <p id="stat-lab-sub" class="text-[11px] text-slate-500 mt-1">
+                  含檢驗報告 0 次
+                </p>
+              </div>
+
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <p class="text-xs font-medium text-slate-600">
+                  今日 Token 消耗
+                </p>
+                <p
+                  id="stat-today-tokens"
+                  class="text-2xl font-bold text-slate-800 mt-1">
+                  0
+                </p>
+                <p
+                  id="stat-total-tokens"
+                  class="text-[11px] text-slate-500 mt-1">
+                  累計 0 Tokens
+                </p>
+              </div>
+
+              <div
+                id="stat-quota-card"
+                class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <p class="text-xs font-medium text-slate-600">
+                  今日 429 額度上限
+                </p>
+                <p
+                  id="stat-today-quota"
+                  class="text-2xl font-bold text-slate-800 mt-1">
+                  0
+                </p>
+                <p id="stat-today-date" class="text-[11px] text-slate-500 mt-1">
+                  統計基準日：--
+                </p>
+              </div>
+            </div>
+
+            <!-- 2. 各帳號使用統計 -->
+            <div class="bg-slate-50/70 border border-slate-200 rounded-xl p-4">
+              <div class="flex items-center justify-between mb-2.5">
+                <h4 class="text-xs font-bold text-slate-700">各帳號使用統計</h4>
+                <span class="text-[11px] text-slate-400"
+                  >依今日次數／累計次數排序</span
+                >
+              </div>
+              <div
+                id="logs-user-stats"
+                class="flex flex-wrap gap-2 text-xs"></div>
+            </div>
+
+            <!-- 3. 篩選列與最近明細表格 -->
+            <div class="space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-sm font-bold text-slate-800">
+                    最近分析紀錄明細
+                  </h4>
+                  <span
+                    id="logs-showing-count"
+                    class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full"
+                    >共 0 筆</span
+                  >
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                  <select
+                    id="logs-filter-user"
+                    onchange="renderLogsTable()"
+                    class="px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-none">
+                    <option value="all">全部帳號</option>
+                  </select>
+                  <select
+                    id="logs-filter-status"
+                    onchange="renderLogsTable()"
+                    class="px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-none">
+                    <option value="all">全部狀態</option>
+                    <option value="success">僅看成功</option>
+                    <option value="error">僅看失敗／429</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- 表格容器 -->
+              <div
+                class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr
+                        class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                        <th class="py-2.5 px-3 font-semibold whitespace-nowrap">
+                          記錄時間
+                        </th>
+                        <th class="py-2.5 px-3 font-semibold whitespace-nowrap">
+                          使用者
+                        </th>
+                        <th class="py-2.5 px-3 font-semibold whitespace-nowrap">
+                          對話日期
+                        </th>
+                        <th
+                          class="py-2.5 px-3 font-semibold whitespace-nowrap text-right">
+                          字數
+                        </th>
+                        <th class="py-2.5 px-3 font-semibold whitespace-nowrap">
+                          檢驗報告
+                        </th>
+                        <th class="py-2.5 px-3 font-semibold whitespace-nowrap">
+                          狀態
+                        </th>
+                        <th
+                          class="py-2.5 px-3 font-semibold whitespace-nowrap text-right">
+                          Token
+                        </th>
+                        <th
+                          class="py-2.5 px-3 font-semibold whitespace-nowrap text-right">
+                          耗時
+                        </th>
+                        <th class="py-2.5 px-3 font-semibold min-w-[140px]">
+                          備註
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      id="logs-table-body"
+                      class="divide-y divide-slate-100 text-slate-700"></tbody>
+                  </table>
+                </div>
+
+                <!-- 無資料提示 -->
+                <div
+                  id="logs-empty"
+                  class="hidden py-10 text-center text-xs text-slate-400">
+                  目前沒有符合條件的分析使用紀錄。
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 彈窗底部 -->
+        <div
+          class="flex items-center justify-between px-5 sm:px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex-shrink-0">
+          <span
+            >顯示最新 50 筆紀錄；完整歷史資料可於試算表 Logs 分頁查閱。</span
+          >
+          <button
+            type="button"
+            onclick="closeLogsModal()"
+            class="px-4 py-1.5 font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition">
+            關閉
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- =========================================================
          畫面一：權限驗證登入頁 (Login View - 正式版純帳密登入)
@@ -427,8 +727,8 @@
             </div>
           </div>
 
-          <!-- 右側：使用者狀態與登出按鈕 -->
-          <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <!-- 右側：使用者狀態、管理員 Logs 按鈕與登出按鈕 -->
+          <div class="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
             <!-- 登入者姓名與帳號標籤 -->
             <div
               id="user-badge"
@@ -440,6 +740,27 @@
                 >admin</span
               >
             </div>
+
+            <!-- 管理員專用：查看使用紀錄按鈕（僅 admin 可見） -->
+            <button
+              type="button"
+              id="btn-admin-logs"
+              onclick="openLogsModal()"
+              title="查看 AI 使用紀錄與額度統計"
+              class="hidden inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition">
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+              <span>使用紀錄</span>
+            </button>
 
             <!-- 登出按鈕 -->
             <button
@@ -1003,13 +1324,13 @@
             （若日後重新「新增部署」產生新網址，直接修改此處即可）
          ========================================================= */
       const GAS_API_URL =
-        "https://script.google.com/macros/s/AKfycbwiyhNWCwZJM8B7pvsvd5KiFbXVryt8alkz47KLtNe_Op3BEpEk8EJyNKUJNDc66UbyDQ/exec";
+        "https://script.google.com/macros/s/AKfycbzuW1zh5AO8wmKShMOMYvUBPdzRvJDuBapi8d6jv1W3FC8QWQwJ_T9Iq9HjwWC_5OM_cw/exec";
 
       // 生化檢驗報告檔案容量上限 (5 MB)
       const MAX_LAB_FILE_BYTES = 5 * 1024 * 1024;
 
       // 工作階段儲存鍵名
-      const SESSION_STORAGE_KEY = "ai_dialogue_platform_session_v5";
+      const SESSION_STORAGE_KEY = "ai_dialogue_platform_session_v6";
 
       // 應用程式執行狀態
       const appState = {
@@ -1023,6 +1344,8 @@
         currentMarkdown: "",
         outputViewMode: "preview", // 'preview' | 'raw'
         isAnalyzing: false,
+        logsCache: [],
+        isLoadingLogs: false,
       };
 
       // 內建簡短衛教對話範例（供快速測試真實 AI 分析）
@@ -1060,15 +1383,30 @@
         setupLabDragAndDrop();
         updateCharCount();
         restoreSessionIfAvailable();
+
+        // 支援按 ESC 鍵關閉管理員 Logs 彈窗
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            const modal = document.getElementById("logs-modal");
+            if (modal && !modal.classList.contains("hidden")) {
+              closeLogsModal();
+            }
+          }
+        });
       });
 
       function isPlaceholderUrl(url) {
         return !url || url.trim() === "" || url.includes("請替換");
       }
 
-      /**
-       * 取得本地今日日期字串 (YYYY-MM-DD) 並填入對話日期欄位
-       */
+      function isAdminUser() {
+        return (
+          String(appState.userRole || "")
+            .trim()
+            .toLowerCase() === "admin"
+        );
+      }
+
       function setDialogueDateToday() {
         const now = new Date();
         const yyyy = now.getFullYear();
@@ -1184,15 +1522,18 @@
       }
 
       function handleLogout() {
+        closeLogsModal();
         appState.isLoggedIn = false;
         appState.userName = "";
         appState.userAccount = "";
         appState.userRole = "user";
         appState.userPassword = "";
         appState.currentMarkdown = "";
+        appState.logsCache = [];
 
         sessionStorage.removeItem(SESSION_STORAGE_KEY);
         document.getElementById("login-password").value = "";
+        document.getElementById("btn-admin-logs").classList.add("hidden");
         clearLabReport(true);
         document.getElementById("workspace-view").classList.add("hidden");
         document.getElementById("login-view").classList.remove("hidden");
@@ -1207,8 +1548,10 @@
         const displayNameEl = document.getElementById("user-display-name");
         const mobileBadgeEl = document.getElementById("mobile-user-badge");
         const statusDotEl = document.getElementById("user-status-dot");
+        const adminLogsBtn = document.getElementById("btn-admin-logs");
 
-        const roleTag = appState.userRole === "admin" ? " [管理員]" : "";
+        const admin = isAdminUser();
+        const roleTag = admin ? " [管理員]" : "";
         const fullLabel = appState.userName
           ? `${appState.userName} (${appState.userAccount})${roleTag}`
           : `${appState.userAccount}${roleTag}`;
@@ -1217,6 +1560,9 @@
         mobileBadgeEl.textContent = appState.userName || appState.userAccount;
         statusDotEl.className =
           "w-2 h-2 rounded-full bg-teal-500 flex-shrink-0";
+
+        // 僅管理員顯示「使用紀錄」按鈕
+        adminLogsBtn.classList.toggle("hidden", !admin);
       }
 
       function setLoginLoading(isLoading) {
@@ -1226,6 +1572,262 @@
         btn.disabled = isLoading;
         text.textContent = isLoading ? "驗證權限中..." : "登入系統";
         spinner.classList.toggle("hidden", !isLoading);
+      }
+
+      /* =========================================================
+         3B. 管理員專用：使用紀錄 (Logs) 彈窗與統計渲染
+         ========================================================= */
+      function openLogsModal() {
+        if (!isAdminUser()) {
+          showToast("權限不足：僅管理員可檢視使用紀錄。", "error");
+          return;
+        }
+        document.getElementById("logs-modal").classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+        fetchAdminLogs();
+      }
+
+      function closeLogsModal() {
+        const modal = document.getElementById("logs-modal");
+        if (modal) {
+          modal.classList.add("hidden");
+        }
+        document.body.classList.remove("overflow-hidden");
+      }
+
+      function handleLogsBackdropClick(event) {
+        if (event.target && event.target.id === "logs-modal") {
+          closeLogsModal();
+        }
+      }
+
+      async function fetchAdminLogs() {
+        if (!isAdminUser() || appState.isLoadingLogs) return;
+
+        appState.isLoadingLogs = true;
+        const refreshBtn = document.getElementById("btn-refresh-logs");
+        const refreshIcon = document.getElementById("logs-refresh-icon");
+        refreshBtn.disabled = true;
+        refreshIcon.classList.add("animate-spin");
+
+        document.getElementById("logs-error").classList.add("hidden");
+        document.getElementById("logs-content").classList.add("hidden");
+        document.getElementById("logs-loading").classList.remove("hidden");
+
+        try {
+          const response = await fetch(GAS_API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "text/plain;charset=utf-8",
+            },
+            body: JSON.stringify({
+              action: "getLogs",
+              account: appState.userAccount,
+              password: appState.userPassword,
+              limit: 50,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP 錯誤狀態碼：${response.status}`);
+          }
+
+          const result = await response.json();
+
+          if (result.status === "success") {
+            appState.logsCache = Array.isArray(result.logs) ? result.logs : [];
+            renderLogsSummary(result.summary || {});
+            populateLogsUserFilter(result.summary && result.summary.byUser);
+            renderLogsTable();
+            document.getElementById("logs-loading").classList.add("hidden");
+            document.getElementById("logs-content").classList.remove("hidden");
+          } else {
+            throw new Error(
+              result.message ||
+                "讀取使用紀錄失敗，請確認後端是否已部署最新版。",
+            );
+          }
+        } catch (err) {
+          console.error("Fetch logs error:", err);
+          document.getElementById("logs-loading").classList.add("hidden");
+          document.getElementById("logs-error-msg").textContent =
+            err.message || "無法連線至伺服器讀取紀錄。";
+          document.getElementById("logs-error").classList.remove("hidden");
+        } finally {
+          appState.isLoadingLogs = false;
+          refreshBtn.disabled = false;
+          refreshIcon.classList.remove("animate-spin");
+        }
+      }
+
+      function renderLogsSummary(summary) {
+        const todayCount = Number(summary.todayCount || 0);
+        const todaySuccess = Number(summary.todaySuccessCount || 0);
+        const todayQuota = Number(summary.todayQuotaErrorCount || 0);
+        const totalCount = Number(summary.totalCount || 0);
+        const withLabCount = Number(summary.withLabCount || 0);
+        const todayTokens = Number(summary.todayTokens || 0);
+        const totalTokens = Number(summary.totalTokens || 0);
+        const todayDate = summary.todayDate || "--";
+
+        document.getElementById("stat-today-count").textContent =
+          todayCount.toLocaleString();
+        document.getElementById("stat-today-sub").textContent =
+          `成功 ${todaySuccess} 次`;
+
+        document.getElementById("stat-total-count").textContent =
+          totalCount.toLocaleString();
+        document.getElementById("stat-lab-sub").textContent =
+          `含檢驗報告 ${withLabCount.toLocaleString()} 次`;
+
+        document.getElementById("stat-today-tokens").textContent =
+          todayTokens.toLocaleString();
+        document.getElementById("stat-total-tokens").textContent =
+          `累計 ${totalTokens.toLocaleString()} Tokens`;
+
+        const quotaCard = document.getElementById("stat-quota-card");
+        const quotaValEl = document.getElementById("stat-today-quota");
+        quotaValEl.textContent = todayQuota.toLocaleString();
+        document.getElementById("stat-today-date").textContent =
+          `統計基準日：${todayDate}`;
+
+        if (todayQuota > 0) {
+          quotaCard.className =
+            "bg-amber-50/80 border border-amber-200 rounded-xl p-4";
+          quotaValEl.className = "text-2xl font-bold text-amber-700 mt-1";
+        } else {
+          quotaCard.className =
+            "bg-slate-50 border border-slate-200 rounded-xl p-4";
+          quotaValEl.className = "text-2xl font-bold text-slate-800 mt-1";
+        }
+
+        // 各帳號統計膠囊卡片
+        const userStatsContainer = document.getElementById("logs-user-stats");
+        const byUser = Array.isArray(summary.byUser) ? summary.byUser : [];
+        if (byUser.length === 0) {
+          userStatsContainer.innerHTML =
+            '<span class="text-slate-400">尚無帳號使用資料</span>';
+        } else {
+          userStatsContainer.innerHTML = byUser
+            .map((u) => {
+              const display = u.name
+                ? `${escapeHtml(u.name)} (${escapeHtml(u.account)})`
+                : escapeHtml(u.account);
+              return `
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs">
+                  <span class="font-semibold text-slate-700">${display}</span>
+                  <span class="text-teal-700 font-semibold bg-teal-50 px-1.5 py-0.5 rounded">今日 ${Number(u.todayCount || 0)}</span>
+                  <span class="text-slate-500">累計 ${Number(u.totalCount || 0)} 次</span>
+                </div>
+              `;
+            })
+            .join("");
+        }
+      }
+
+      function populateLogsUserFilter(byUserList) {
+        const selectEl = document.getElementById("logs-filter-user");
+        const prevVal = selectEl.value || "all";
+        const users = Array.isArray(byUserList) ? byUserList : [];
+
+        let html = '<option value="all">全部帳號</option>';
+        users.forEach((u) => {
+          const acc = String(u.account || "");
+          if (!acc) return;
+          const label = u.name ? `${u.name} (${acc})` : acc;
+          html += `<option value="${escapeHtml(acc)}">${escapeHtml(label)}</option>`;
+        });
+
+        selectEl.innerHTML = html;
+        if (Array.from(selectEl.options).some((opt) => opt.value === prevVal)) {
+          selectEl.value = prevVal;
+        }
+      }
+
+      function renderLogsTable() {
+        const userFilter = document.getElementById("logs-filter-user").value;
+        const statusFilter =
+          document.getElementById("logs-filter-status").value;
+
+        const filtered = appState.logsCache.filter((item) => {
+          if (userFilter !== "all" && String(item.account) !== userFilter) {
+            return false;
+          }
+          const st = String(item.status || "");
+          if (statusFilter === "success" && st !== "成功") {
+            return false;
+          }
+          if (statusFilter === "error" && st === "成功") {
+            return false;
+          }
+          return true;
+        });
+
+        document.getElementById("logs-showing-count").textContent =
+          `顯示 ${filtered.length} 筆`;
+
+        const tbody = document.getElementById("logs-table-body");
+        const emptyEl = document.getElementById("logs-empty");
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = "";
+          emptyEl.classList.remove("hidden");
+          return;
+        }
+
+        emptyEl.classList.add("hidden");
+        tbody.innerHTML = filtered
+          .map((row) => {
+            const st = String(row.status || "");
+            let badgeClass =
+              "bg-slate-100 text-slate-700 border border-slate-200";
+            if (st === "成功") {
+              badgeClass = "bg-teal-50 text-teal-700 border border-teal-200";
+            } else if (st.includes("429") || st.includes("額度")) {
+              badgeClass = "bg-amber-50 text-amber-700 border border-amber-200";
+            } else if (st) {
+              badgeClass = "bg-rose-50 text-rose-700 border border-rose-200";
+            }
+
+            const labText = String(row.labReportType || "否");
+            const labBadge = labText.startsWith("是")
+              ? `<span class="inline-block px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 font-medium">${escapeHtml(labText)}</span>`
+              : `<span class="text-slate-400">否</span>`;
+
+            const userLabel = row.name
+              ? `<div class="font-medium text-slate-800">${escapeHtml(row.name)}</div><div class="text-[11px] text-slate-400">${escapeHtml(row.account)}</div>`
+              : `<div class="font-medium text-slate-800">${escapeHtml(row.account)}</div>`;
+
+            const tokenStr =
+              row.totalTokens !== "" &&
+              row.totalTokens !== null &&
+              row.totalTokens !== undefined
+                ? Number(row.totalTokens).toLocaleString()
+                : "-";
+            const durStr =
+              row.durationSec !== "" &&
+              row.durationSec !== null &&
+              row.durationSec !== undefined
+                ? `${row.durationSec}s`
+                : "-";
+
+            return `
+              <tr class="hover:bg-slate-50/80 transition">
+                <td class="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-slate-600">${escapeHtml(row.timestamp || "-")}</td>
+                <td class="py-2.5 px-3 whitespace-nowrap">${userLabel}</td>
+                <td class="py-2.5 px-3 whitespace-nowrap text-slate-600">${escapeHtml(row.dialogueDate || "-")}</td>
+                <td class="py-2.5 px-3 whitespace-nowrap text-right font-mono text-slate-600">${Number(row.transcriptLength || 0).toLocaleString()}</td>
+                <td class="py-2.5 px-3 whitespace-nowrap">${labBadge}</td>
+                <td class="py-2.5 px-3 whitespace-nowrap">
+                  <span class="inline-block px-2 py-0.5 rounded-md font-medium ${badgeClass}">${escapeHtml(st || "-")}</span>
+                </td>
+                <td class="py-2.5 px-3 whitespace-nowrap text-right font-mono text-slate-600">${tokenStr}</td>
+                <td class="py-2.5 px-3 whitespace-nowrap text-right font-mono text-slate-500">${escapeHtml(durStr)}</td>
+                <td class="py-2.5 px-3 text-slate-500 max-w-[220px] break-words">${escapeHtml(row.note || "-")}</td>
+              </tr>
+            `;
+          })
+          .join("");
       }
 
       /* =========================================================
