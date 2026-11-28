@@ -18,6 +18,9 @@
     <!-- 載入 Marked.js (CDN) 用於渲染 Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+    <!-- 載入 Chart.js (CDN) 用於跨時間點樞鈕趨勢圖 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
     <!-- Tailwind 自訂字體設定 -->
     <script>
       tailwind.config = {
@@ -161,6 +164,14 @@
         margin: 1.5rem 0;
       }
 
+      /* 保護樞鈕趨勢圖卡片內文字不受 markdown-body 段落與標題間距影響 */
+      .pivot-chart-card p,
+      .pivot-chart-card h3,
+      .pivot-chart-card h4 {
+        margin-top: 0;
+        margin-bottom: 0;
+      }
+
       /* 細緻捲軸樣式 */
       ::-webkit-scrollbar {
         width: 6px;
@@ -183,7 +194,7 @@
         background-color: #f0fdfa !important;
       }
 
-      /* 列印 / 另存 PDF 專用樣式：只列印分析結果報告 */
+      /* 列印 / 另存 PDF 專用樣式：只列印分析結果報告與趨勢圖 */
       @media print {
         body {
           background-color: #ffffff !important;
@@ -211,9 +222,16 @@
           padding: 0 !important;
         }
         .markdown-body h2,
-        .markdown-body th {
+        .markdown-body th,
+        .pivot-chart-card {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
+        }
+        .pivot-chart-card {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          border: 1px solid #cbd5e1 !important;
+          box-shadow: none !important;
         }
         .markdown-body table {
           display: table !important;
@@ -1181,7 +1199,7 @@
               </h3>
               <p class="text-sm text-slate-500 max-w-sm leading-relaxed mb-5">
                 請於左側設定對話日期、貼上對話逐字稿，並可一次上傳單份或多份不同時間點的生化檢驗報告，讓
-                AI 自動進行跨時間點趨勢分析。
+                AI 自動進行跨時間點趨勢分析與互動圖表繪製。
               </p>
               <button
                 type="button"
@@ -1342,6 +1360,19 @@
       const MAX_LAB_FILE_BYTES = 5 * 1024 * 1024; // 單檔上限 5 MB
       const MAX_LAB_TOTAL_BYTES = 10 * 1024 * 1024; // 總計上限 10 MB
 
+      // 樞鈕趨勢圖多項比較模式上限與色票
+      const MAX_COMPARE_ITEMS = 8;
+      const CHART_PALETTE = [
+        "#0d9488", // teal
+        "#2563eb", // blue
+        "#ea580c", // orange
+        "#7c3aed", // violet
+        "#db2777", // pink
+        "#0891b2", // cyan
+        "#ca8a04", // yellow-dark
+        "#4f46e5", // indigo
+      ];
+
       // 工作階段儲存鍵名
       const SESSION_STORAGE_KEY = "ai_dialogue_platform_session_v6";
 
@@ -1359,6 +1390,18 @@
         isAnalyzing: false,
         logsCache: [],
         isLoadingLogs: false,
+      };
+
+      // 樞鈕互動趨勢圖狀態
+      const pivotChartState = {
+        instance: null,
+        dates: [],
+        items: [], // [{ index, name, values, rawValues, refText, refRange, unit, trend, isAbnormal }]
+        mode: "single", // 'single' | 'compare'
+        chartType: "line", // 'line' | 'bar'
+        filter: "all", // 'all' | 'abnormal'
+        selectedSingleIdx: 0,
+        selectedCompareIndices: [],
       };
 
       // 內建簡短衛教對話範例（供快速測試真實 AI 分析）
@@ -1882,7 +1925,6 @@
         if (files && files.length > 0) {
           processLabFiles(files);
         }
-        // 重置 input，確保使用者可再次選擇檔案追加
         event.target.value = "";
       }
 
@@ -1962,7 +2004,6 @@
 
           try {
             const base64 = await readFileAsBase64(file);
-            // 簡易去重：避免不小心重複拖入完全相同的檔案
             const isDuplicate = appState.labReports.some(
               (r) =>
                 r.size === file.size &&
@@ -1996,7 +2037,7 @@
           const totalCount = appState.labReports.length;
           const msg =
             totalCount >= 2
-              ? `已載入 ${addedCount} 份報告（目前共 ${totalCount} 份，AI 將進行跨時間點趨勢分析）。`
+              ? `已載入 ${addedCount} 份報告（目前共 ${totalCount} 份，AI 將進行跨時間點趨勢分析與繪製互動圖表）。`
               : "已載入 1 份生化檢驗報告（可繼續點擊或拖曳追加其他時間點報告）。";
           showToast(msg, "success");
         }
@@ -2312,6 +2353,7 @@
       }
 
       function showErrorState(rawMessage, technicalDetail = "") {
+        destroyPivotTrendChart();
         appState.currentMarkdown = "";
         document.getElementById("markdown-output").innerHTML = "";
         document.getElementById("raw-markdown-output").value = "";
@@ -2432,9 +2474,10 @@
       }
 
       /* =========================================================
-         6. 報告渲染、檢視切換、複製、下載與列印
+         6. 報告渲染、樞鈕篩選式互動趨勢圖、複製、下載與列印
          ========================================================= */
       function displayMarkdownResult(markdownText) {
+        destroyPivotTrendChart();
         appState.currentMarkdown = markdownText;
 
         const htmlContent =
@@ -2442,7 +2485,8 @@
             ? marked.parse(markdownText)
             : `<pre>${escapeHtml(markdownText)}</pre>`;
 
-        document.getElementById("markdown-output").innerHTML = htmlContent;
+        const outputEl = document.getElementById("markdown-output");
+        outputEl.innerHTML = htmlContent;
         document.getElementById("raw-markdown-output").value = markdownText;
 
         document.getElementById("loading-state").classList.add("hidden");
@@ -2450,9 +2494,13 @@
         document.getElementById("error-state").classList.add("hidden");
 
         setOutputViewMode(appState.outputViewMode);
+
+        // 偵測「跨時間點趨勢對照表」，若有 2 個以上檢驗日期則於表格正下方掛載互動趨勢圖
+        mountPivotTrendChartIfApplicable(outputEl);
       }
 
       function resetOutputView() {
+        destroyPivotTrendChart();
         appState.currentMarkdown = "";
         document.getElementById("markdown-output").innerHTML = "";
         document.getElementById("raw-markdown-output").value = "";
@@ -2486,7 +2534,1036 @@
         if (appState.currentMarkdown) {
           previewContainer.classList.toggle("hidden", mode !== "preview");
           rawContainer.classList.toggle("hidden", mode !== "raw");
+          if (mode === "preview" && pivotChartState.instance) {
+            requestAnimationFrame(() => {
+              if (pivotChartState.instance) {
+                pivotChartState.instance.resize();
+              }
+            });
+          }
         }
+      }
+
+      /* =========================================================
+         6B. 樞鈕篩選式互動趨勢圖引擎 (Chart.js)
+             - 僅於偵測到 2 個以上檢驗日期且具可比對數值時顯示
+             - 自動掛載於「跨時間點趨勢對照表」正下方
+         ========================================================= */
+      function destroyPivotTrendChart() {
+        if (pivotChartState.instance) {
+          try {
+            pivotChartState.instance.destroy();
+          } catch (e) {
+            // 忽略銷毀異常
+          }
+          pivotChartState.instance = null;
+        }
+        pivotChartState.dates = [];
+        pivotChartState.items = [];
+        pivotChartState.selectedSingleIdx = 0;
+        pivotChartState.selectedCompareIndices = [];
+        const existingCard = document.getElementById("pivot-trend-chart-card");
+        if (existingCard) existingCard.remove();
+      }
+
+      /**
+       * 解析數值儲存格（例如 "657 (高)"、"70.5 (低)"、"7,960"、"-"）
+       */
+      function parseLabNumericCell(rawText) {
+        const cleaned = String(rawText || "")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (
+          !cleaned ||
+          /^[-—–－]+$/.test(cleaned) ||
+          /^(n\/a|na|未檢驗|未提供|無|陰性|陽性)$/i.test(cleaned)
+        ) {
+          return { value: null, raw: cleaned, flagAbnormal: false };
+        }
+        const match = cleaned.match(/-?\d[\d,]*(?:\.\d+)?/);
+        if (!match) {
+          return { value: null, raw: cleaned, flagAbnormal: false };
+        }
+        const num = parseFloat(match[0].replace(/,/g, ""));
+        if (!isFinite(num)) {
+          return { value: null, raw: cleaned, flagAbnormal: false };
+        }
+        const flagAbnormal =
+          /(高|低|陽|異常|↑|↓|\(H\)|\(L\)|（H）|（L）)/i.test(cleaned);
+        return { value: num, raw: cleaned, flagAbnormal: flagAbnormal };
+      }
+
+      /**
+       * 解析正常參考值欄位（支援 "4000-10000"、換行 "4000-\n10000"、"<150"、"> 40"、"<=130"）
+       */
+      function parseReferenceRange(refText) {
+        const compact = String(refText || "")
+          .replace(/\s+/g, "")
+          .replace(/＜/g, "<")
+          .replace(/＞/g, ">")
+          .replace(/≦/g, "<=")
+          .replace(/≧/g, ">=")
+          .replace(/[～~–—－]/g, "-");
+
+        if (!compact || /^[-]+$/.test(compact)) return null;
+
+        // 1. 雙邊區間：a-b
+        const rangeMatch = compact.match(/(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)/);
+        if (rangeMatch) {
+          const minVal = parseFloat(rangeMatch[1]);
+          const maxVal = parseFloat(rangeMatch[2]);
+          if (isFinite(minVal) && isFinite(maxVal) && maxVal > minVal) {
+            return { min: minVal, max: maxVal, type: "range" };
+          }
+        }
+
+        // 2. 上限：<b 或 <=b
+        const maxMatch = compact.match(/<=?(\d+(?:\.\d+)?)/);
+        if (maxMatch) {
+          const maxVal = parseFloat(maxMatch[1]);
+          if (isFinite(maxVal)) {
+            return { min: null, max: maxVal, type: "max" };
+          }
+        }
+
+        // 3. 下限：>a 或 >=a
+        const minMatch = compact.match(/>=?(\d+(?:\.\d+)?)/);
+        if (minMatch) {
+          const minVal = parseFloat(minMatch[1]);
+          if (isFinite(minVal)) {
+            return { min: minVal, max: null, type: "min" };
+          }
+        }
+
+        return null;
+      }
+
+      function isValueOutOfRange(val, refRange) {
+        if (val === null || !refRange) return false;
+        if (refRange.min !== null && val < refRange.min) return true;
+        if (refRange.max !== null && val > refRange.max) return true;
+        return false;
+      }
+
+      /**
+       * 從渲染後的報告 DOM 中尋找「跨時間點趨勢對照表」並萃取結構化數據
+       */
+      function extractTrendTableFromDom(containerEl) {
+        const tables = Array.from(containerEl.querySelectorAll("table"));
+        const dateHeaderRegex = /\d{3,4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}/;
+
+        for (const table of tables) {
+          const headerCells = Array.from(
+            table.querySelectorAll(
+              "thead tr th, tr:first-child th, tr:first-child td",
+            ),
+          );
+          if (headerCells.length < 3) continue;
+
+          const headers = headerCells.map((el) =>
+            el.textContent.replace(/\s+/g, " ").trim(),
+          );
+
+          // 找出屬於日期的欄位索引
+          const dateCols = [];
+          headers.forEach((h, idx) => {
+            if (dateHeaderRegex.test(h)) {
+              dateCols.push({ colIdx: idx, label: h });
+            }
+          });
+
+          // 必須偵測到 2 個以上檢驗日期欄位才啟用互動趨勢圖
+          if (dateCols.length < 2) continue;
+
+          // 辨識檢驗項目、正常參考值、單位、趨勢變化欄位
+          let nameColIdx = headers.findIndex((h) =>
+            /(檢驗項目|項目|指標|名稱)/.test(h),
+          );
+          if (nameColIdx === -1) nameColIdx = 0;
+
+          const refColIdx = headers.findIndex((h) =>
+            /(參考值|正常值|標準值|參考範圍)/.test(h),
+          );
+          const unitColIdx = headers.findIndex((h) => /(單位)/.test(h));
+          const trendColIdx = headers.findIndex((h) =>
+            /(趨勢|變化|判讀|評估)/.test(h),
+          );
+
+          const bodyRows = Array.from(table.querySelectorAll("tbody tr"));
+          const dataRows =
+            bodyRows.length > 0
+              ? bodyRows
+              : Array.from(table.querySelectorAll("tr")).slice(1);
+
+          const items = [];
+          for (const tr of dataRows) {
+            const tds = Array.from(tr.querySelectorAll("td"));
+            if (tds.length < 3) continue;
+
+            const name = (tds[nameColIdx]?.textContent || "")
+              .replace(/\s+/g, " ")
+              .trim();
+            if (!name) continue;
+
+            const refText =
+              refColIdx !== -1
+                ? (tds[refColIdx]?.textContent || "")
+                    .replace(/\s+/g, " ")
+                    .trim()
+                : "";
+            const unit =
+              unitColIdx !== -1
+                ? (tds[unitColIdx]?.textContent || "")
+                    .replace(/\s+/g, " ")
+                    .trim()
+                : "";
+            const trend =
+              trendColIdx !== -1
+                ? (tds[trendColIdx]?.textContent || "")
+                    .replace(/\s+/g, " ")
+                    .trim()
+                : "";
+
+            const refRange = parseReferenceRange(refText);
+            const values = [];
+            const rawValues = [];
+            let validCount = 0;
+            let abnormalFound = false;
+
+            for (const dc of dateCols) {
+              const cellText = tds[dc.colIdx]?.textContent || "";
+              const parsed = parseLabNumericCell(cellText);
+              values.push(parsed.value);
+              rawValues.push(parsed.raw || "-");
+              if (parsed.value !== null) {
+                validCount++;
+                if (
+                  parsed.flagAbnormal ||
+                  isValueOutOfRange(parsed.value, refRange)
+                ) {
+                  abnormalFound = true;
+                }
+              }
+            }
+
+            if (
+              !abnormalFound &&
+              /(偏高|偏低|惡化|新發異常|仍高|仍低|持續偏|異常)/.test(trend)
+            ) {
+              abnormalFound = true;
+            }
+
+            // 僅納入至少有 2 個時間點有效數值的可比對項目
+            if (validCount >= 2) {
+              items.push({
+                index: items.length,
+                name: name,
+                values: values,
+                rawValues: rawValues,
+                refText: refText,
+                refRange: refRange,
+                unit: unit,
+                trend: trend,
+                isAbnormal: abnormalFound,
+              });
+            }
+          }
+
+          if (items.length > 0) {
+            return {
+              tableEl: table,
+              dates: dateCols.map((d) => d.label),
+              items: items,
+            };
+          }
+        }
+
+        return null;
+      }
+
+      /**
+       * 若報告包含 2 個以上檢驗日期的趨勢對照表，於表格正下方建立並繪製樞鈕互動趨勢圖
+       */
+      function mountPivotTrendChartIfApplicable(outputEl) {
+        if (typeof Chart === "undefined") return;
+
+        const extracted = extractTrendTableFromDom(outputEl);
+        if (
+          !extracted ||
+          extracted.dates.length < 2 ||
+          extracted.items.length === 0
+        ) {
+          return;
+        }
+
+        pivotChartState.dates = extracted.dates;
+        pivotChartState.items = extracted.items;
+        pivotChartState.mode = "single";
+        pivotChartState.chartType = "line";
+        pivotChartState.filter = "all";
+
+        // 預設選中第一個異常項目；若全部正常則選第一項
+        const abnormalItems = extracted.items.filter((it) => it.isAbnormal);
+        pivotChartState.selectedSingleIdx =
+          abnormalItems.length > 0 ? abnormalItems[0].index : 0;
+
+        // 多項比較模式預設勾選異常項目（若無異常則前 4 項，上限 MAX_COMPARE_ITEMS）
+        const defaultComparePool =
+          abnormalItems.length > 0 ? abnormalItems : extracted.items;
+        pivotChartState.selectedCompareIndices = defaultComparePool
+          .slice(0, Math.min(4, MAX_COMPARE_ITEMS))
+          .map((it) => it.index);
+
+        const card = document.createElement("div");
+        card.id = "pivot-trend-chart-card";
+        card.className =
+          "pivot-chart-card my-5 bg-slate-50/70 border border-teal-200/80 rounded-2xl p-4 sm:p-5 shadow-xs";
+
+        const abnormalCount = abnormalItems.length;
+        const totalCount = extracted.items.length;
+
+        card.innerHTML = `
+          <!-- 圖表標題與工具列 -->
+          <div class="flex flex-wrap items-start justify-between gap-3 pb-3.5 border-b border-slate-200/80">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <h4 class="text-sm sm:text-base font-bold text-slate-800 leading-tight">
+                  跨時間點檢驗趨勢圖（樞鈕篩選）
+                </h4>
+                <p id="pivot-chart-subtitle" class="text-xs text-slate-500 mt-0.5">
+                  已自動整合 ${extracted.dates.length} 個檢驗日期・共 ${totalCount} 項可比對指標（${abnormalCount} 項異常）
+                </p>
+              </div>
+            </div>
+
+            <!-- 右側控制群組（列印時隱藏） -->
+            <div class="no-print flex flex-wrap items-center gap-1.5">
+              <!-- 分析模式切換 -->
+              <div class="inline-flex rounded-xl bg-slate-200/80 p-0.5">
+                <button
+                  type="button"
+                  id="pivot-btn-mode-single"
+                  onclick="setPivotChartMode('single')"
+                  class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-xs transition">
+                  單項數值
+                </button>
+                <button
+                  type="button"
+                  id="pivot-btn-mode-compare"
+                  onclick="setPivotChartMode('compare')"
+                  class="px-2.5 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition">
+                  多項變化率 (%)
+                </button>
+              </div>
+
+              <!-- 圖表類型切換 -->
+              <div class="inline-flex rounded-xl bg-slate-200/80 p-0.5">
+                <button
+                  type="button"
+                  id="pivot-btn-type-line"
+                  onclick="setPivotChartType('line')"
+                  class="px-2 py-1 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-xs transition">
+                  折線
+                </button>
+                <button
+                  type="button"
+                  id="pivot-btn-type-bar"
+                  onclick="setPivotChartType('bar')"
+                  class="px-2 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition">
+                  長條
+                </button>
+              </div>
+
+              <!-- 下載 PNG -->
+              <button
+                type="button"
+                onclick="downloadPivotChartPng()"
+                title="下載目前趨勢圖 (PNG)"
+                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-teal-700 bg-white hover:bg-teal-50 border border-teal-200 rounded-xl transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                <span>下載圖表</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 樞鈕篩選器區（列印時隱藏） -->
+          <div class="no-print mt-3.5 space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-semibold text-slate-600">指標篩選：</span>
+                <button
+                  type="button"
+                  id="pivot-filter-all"
+                  onclick="setPivotItemFilter('all')"
+                  class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-600 text-white transition">
+                  全部項目 (${totalCount})
+                </button>
+                <button
+                  type="button"
+                  id="pivot-filter-abnormal"
+                  onclick="setPivotItemFilter('abnormal')"
+                  class="px-2.5 py-1 text-xs font-medium rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 transition ${abnormalCount === 0 ? "opacity-50 cursor-not-allowed" : ""}"
+                  ${abnormalCount === 0 ? "disabled" : ""}>
+                  僅看異常 (${abnormalCount})
+                </button>
+              </div>
+
+              <!-- 多項比較模式專用快捷按鈕 -->
+              <div id="pivot-compare-actions" class="hidden flex items-center gap-1.5 text-xs">
+                <span id="pivot-compare-hint" class="text-slate-500">已選 0/${MAX_COMPARE_ITEMS} 項</span>
+                <button
+                  type="button"
+                  onclick="selectPivotPreset('abnormal')"
+                  class="px-2 py-0.5 font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition">
+                  全選異常
+                </button>
+                <button
+                  type="button"
+                  onclick="selectPivotPreset('clear')"
+                  class="px-2 py-0.5 font-medium text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-md transition">
+                  清除
+                </button>
+              </div>
+            </div>
+
+            <!-- 可點擊切換／勾選的檢驗項目標籤列 -->
+            <div id="pivot-item-pills" class="flex flex-wrap gap-1.5"></div>
+          </div>
+
+          <!-- 圖表畫布區 -->
+          <div class="mt-4 bg-white border border-slate-200/90 rounded-xl p-3 sm:p-4">
+            <div class="relative h-[260px] sm:h-[300px] w-full">
+              <canvas id="pivot-trend-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- 底部數值摘要列 -->
+          <div
+            id="pivot-chart-summary"
+            class="mt-3 px-3.5 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2"></div>
+        `;
+
+        // 精準插入在「跨時間點趨勢對照表」正下方
+        extracted.tableEl.insertAdjacentElement("afterend", card);
+
+        renderPivotItemPills();
+        renderPivotChartCanvas();
+      }
+
+      function setPivotChartMode(mode) {
+        if (pivotChartState.mode === mode) return;
+        pivotChartState.mode = mode;
+
+        const btnSingle = document.getElementById("pivot-btn-mode-single");
+        const btnCompare = document.getElementById("pivot-btn-mode-compare");
+        const compareActions = document.getElementById("pivot-compare-actions");
+
+        if (mode === "single") {
+          btnSingle.className =
+            "px-2.5 py-1 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-xs transition";
+          btnCompare.className =
+            "px-2.5 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition";
+          compareActions.classList.add("hidden");
+        } else {
+          btnCompare.className =
+            "px-2.5 py-1 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-xs transition";
+          btnSingle.className =
+            "px-2.5 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition";
+          compareActions.classList.remove("hidden");
+          if (pivotChartState.selectedCompareIndices.length === 0) {
+            selectPivotPreset("abnormal", true);
+          }
+        }
+
+        renderPivotItemPills();
+        renderPivotChartCanvas();
+      }
+
+      function setPivotChartType(chartType) {
+        if (pivotChartState.chartType === chartType) return;
+        pivotChartState.chartType = chartType;
+
+        const btnLine = document.getElementById("pivot-btn-type-line");
+        const btnBar = document.getElementById("pivot-btn-type-bar");
+
+        if (chartType === "line") {
+          btnLine.className =
+            "px-2 py-1 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-xs transition";
+          btnBar.className =
+            "px-2 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition";
+        } else {
+          btnBar.className =
+            "px-2 py-1 text-xs font-semibold rounded-lg bg-white text-teal-700 shadow-xs transition";
+          btnLine.className =
+            "px-2 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-800 transition";
+        }
+
+        renderPivotChartCanvas();
+      }
+
+      function setPivotItemFilter(filter) {
+        pivotChartState.filter = filter;
+
+        const btnAll = document.getElementById("pivot-filter-all");
+        const btnAbnormal = document.getElementById("pivot-filter-abnormal");
+
+        if (filter === "all") {
+          btnAll.className =
+            "px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-600 text-white transition";
+          btnAbnormal.className =
+            "px-2.5 py-1 text-xs font-medium rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 transition";
+        } else {
+          btnAbnormal.className =
+            "px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-600 text-white transition";
+          btnAll.className =
+            "px-2.5 py-1 text-xs font-medium rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 transition";
+
+          // 若單項模式下目前選到正常項目，切換為第一個異常項目
+          const visibleAbnormal = pivotChartState.items.filter(
+            (it) => it.isAbnormal,
+          );
+          if (
+            pivotChartState.mode === "single" &&
+            visibleAbnormal.length > 0 &&
+            !pivotChartState.items[pivotChartState.selectedSingleIdx]
+              ?.isAbnormal
+          ) {
+            pivotChartState.selectedSingleIdx = visibleAbnormal[0].index;
+          }
+        }
+
+        renderPivotItemPills();
+        renderPivotChartCanvas();
+      }
+
+      function selectPivotPreset(preset, silent = false) {
+        if (preset === "clear") {
+          pivotChartState.selectedCompareIndices = [];
+        } else if (preset === "abnormal") {
+          const abnormals = pivotChartState.items.filter((it) => it.isAbnormal);
+          const pool = abnormals.length > 0 ? abnormals : pivotChartState.items;
+          pivotChartState.selectedCompareIndices = pool
+            .slice(0, MAX_COMPARE_ITEMS)
+            .map((it) => it.index);
+        }
+        if (!silent) {
+          renderPivotItemPills();
+          renderPivotChartCanvas();
+        }
+      }
+
+      function handlePivotPillClick(itemIndex) {
+        if (pivotChartState.mode === "single") {
+          pivotChartState.selectedSingleIdx = itemIndex;
+        } else {
+          const pos = pivotChartState.selectedCompareIndices.indexOf(itemIndex);
+          if (pos !== -1) {
+            pivotChartState.selectedCompareIndices.splice(pos, 1);
+          } else {
+            if (
+              pivotChartState.selectedCompareIndices.length >= MAX_COMPARE_ITEMS
+            ) {
+              showToast(
+                `多項比較最多同時勾選 ${MAX_COMPARE_ITEMS} 個檢驗項目，以維持圖表清晰度。`,
+                "warning",
+              );
+              return;
+            }
+            pivotChartState.selectedCompareIndices.push(itemIndex);
+          }
+        }
+        renderPivotItemPills();
+        renderPivotChartCanvas();
+      }
+
+      function renderPivotItemPills() {
+        const container = document.getElementById("pivot-item-pills");
+        if (!container) return;
+
+        const visibleItems =
+          pivotChartState.filter === "abnormal"
+            ? pivotChartState.items.filter((it) => it.isAbnormal)
+            : pivotChartState.items;
+
+        if (pivotChartState.mode === "compare") {
+          const hintEl = document.getElementById("pivot-compare-hint");
+          if (hintEl) {
+            hintEl.textContent = `已選 ${pivotChartState.selectedCompareIndices.length}/${MAX_COMPARE_ITEMS} 項`;
+          }
+        }
+
+        container.innerHTML = visibleItems
+          .map((item) => {
+            const isSelected =
+              pivotChartState.mode === "single"
+                ? pivotChartState.selectedSingleIdx === item.index
+                : pivotChartState.selectedCompareIndices.includes(item.index);
+
+            const colorIdx = pivotChartState.selectedCompareIndices.indexOf(
+              item.index,
+            );
+            const dotColor =
+              pivotChartState.mode === "compare" && colorIdx !== -1
+                ? CHART_PALETTE[colorIdx % CHART_PALETTE.length]
+                : item.isAbnormal
+                  ? "#e11d48"
+                  : "#0d9488";
+
+            let pillClass =
+              "bg-white text-slate-700 border-slate-200 hover:border-teal-400 hover:bg-teal-50/40";
+            if (isSelected) {
+              pillClass =
+                pivotChartState.mode === "single"
+                  ? "bg-teal-600 text-white border-teal-600 shadow-xs"
+                  : "bg-teal-50 text-teal-900 border-teal-500 ring-1 ring-teal-500/30";
+            }
+
+            const abnormalDot =
+              item.isAbnormal && !isSelected
+                ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0"></span>'
+                : pivotChartState.mode === "compare" && isSelected
+                  ? `<span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${dotColor}"></span>`
+                  : "";
+
+            return `
+              <button
+                type="button"
+                onclick="handlePivotPillClick(${item.index})"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border transition ${pillClass}">
+                ${abnormalDot}
+                <span>${escapeHtml(item.name)}</span>
+              </button>
+            `;
+          })
+          .join("");
+      }
+
+      /**
+       * Chart.js 內建外掛：繪製單項正常參考區間帶／虛線，或多項模式 0% 基準線
+       */
+      const pivotReferencePlugin = {
+        id: "pivotReferenceBand",
+        beforeDatasetsDraw(chart, _args, pluginOptions) {
+          if (!pluginOptions) return;
+          const { ctx, chartArea, scales } = chart;
+          const yScale = scales.y;
+          if (!chartArea || !yScale) return;
+
+          ctx.save();
+          const { left, right, top, bottom } = chartArea;
+
+          // 多項比較模式：繪製 0% 基準虛線
+          if (pluginOptions.zeroBaseline) {
+            const y0 = yScale.getPixelForValue(0);
+            if (y0 >= top && y0 <= bottom) {
+              ctx.beginPath();
+              ctx.setLineDash([5, 4]);
+              ctx.strokeStyle = "#94a3b8";
+              ctx.lineWidth = 1.5;
+              ctx.moveTo(left, y0);
+              ctx.lineTo(right, y0);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.fillStyle = "#64748b";
+              ctx.font = '11px "Inter", "Noto Sans TC", sans-serif';
+              ctx.textAlign = "right";
+              ctx.fillText("基準 0%", right - 6, y0 - 5);
+            }
+            ctx.restore();
+            return;
+          }
+
+          // 單項模式：繪製正常參考範圍綠色區間與上下限虛線
+          const ref = pluginOptions.refRange;
+          if (!ref) {
+            ctx.restore();
+            return;
+          }
+
+          let bandTop = top;
+          let bandBottom = bottom;
+
+          if (ref.max !== null) {
+            bandTop = Math.max(
+              top,
+              Math.min(bottom, yScale.getPixelForValue(ref.max)),
+            );
+          }
+          if (ref.min !== null) {
+            bandBottom = Math.max(
+              top,
+              Math.min(bottom, yScale.getPixelForValue(ref.min)),
+            );
+          }
+
+          if (bandBottom > bandTop) {
+            ctx.fillStyle = "rgba(16, 185, 129, 0.10)";
+            ctx.fillRect(left, bandTop, right - left, bandBottom - bandTop);
+          }
+
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = "rgba(5, 150, 105, 0.75)";
+          ctx.lineWidth = 1.4;
+          ctx.font = '11px "Inter", "Noto Sans TC", sans-serif';
+          ctx.fillStyle = "#047857";
+          ctx.textAlign = "right";
+
+          if (ref.max !== null) {
+            const yMax = yScale.getPixelForValue(ref.max);
+            if (yMax >= top && yMax <= bottom) {
+              ctx.beginPath();
+              ctx.moveTo(left, yMax);
+              ctx.lineTo(right, yMax);
+              ctx.stroke();
+              const labelY = yMax - top < 16 ? yMax + 13 : yMax - 5;
+              ctx.fillText(`正常上限 ${ref.max}`, right - 6, labelY);
+            }
+          }
+
+          if (ref.min !== null) {
+            const yMin = yScale.getPixelForValue(ref.min);
+            if (yMin >= top && yMin <= bottom) {
+              ctx.beginPath();
+              ctx.moveTo(left, yMin);
+              ctx.lineTo(right, yMin);
+              ctx.stroke();
+              const labelY = bottom - yMin < 16 ? yMin - 5 : yMin + 13;
+              ctx.fillText(`正常下限 ${ref.min}`, right - 6, labelY);
+            }
+          }
+
+          ctx.restore();
+        },
+      };
+
+      function renderPivotChartCanvas() {
+        const canvas = document.getElementById("pivot-trend-canvas");
+        const summaryEl = document.getElementById("pivot-chart-summary");
+        if (!canvas || typeof Chart === "undefined") return;
+
+        if (pivotChartState.instance) {
+          pivotChartState.instance.destroy();
+          pivotChartState.instance = null;
+        }
+
+        const dates = pivotChartState.dates;
+        const chartType = pivotChartState.chartType;
+
+        if (pivotChartState.mode === "single") {
+          const item =
+            pivotChartState.items[pivotChartState.selectedSingleIdx] ||
+            pivotChartState.items[0];
+          if (!item) return;
+
+          const pointColors = item.values.map((v, idx) => {
+            if (v === null) return "#94a3b8";
+            const rawFlag = /(高|低|陽|異常|↑|↓)/i.test(
+              item.rawValues[idx] || "",
+            );
+            const outOfRange = isValueOutOfRange(v, item.refRange);
+            return rawFlag || outOfRange ? "#e11d48" : "#0d9488";
+          });
+
+          // 計算合適的 Y 軸建議邊界，確保參考線與數值都完整呈現
+          const nums = item.values.filter((v) => v !== null);
+          if (item.refRange) {
+            if (item.refRange.min !== null) nums.push(item.refRange.min);
+            if (item.refRange.max !== null) nums.push(item.refRange.max);
+          }
+          const minNum = Math.min(...nums);
+          const maxNum = Math.max(...nums);
+          const pad =
+            maxNum === minNum
+              ? Math.max(Math.abs(maxNum) * 0.15, 1)
+              : (maxNum - minNum) * 0.18;
+          const suggestedMinVal =
+            minNum >= 0 ? Math.max(0, minNum - pad) : minNum - pad;
+
+          const unitLabel = item.unit ? ` (${item.unit})` : "";
+
+          pivotChartState.instance = new Chart(canvas.getContext("2d"), {
+            type: chartType,
+            data: {
+              labels: dates,
+              datasets: [
+                {
+                  label: `${item.name}${unitLabel}`,
+                  data: item.values,
+                  borderColor: "#0d9488",
+                  backgroundColor:
+                    chartType === "bar"
+                      ? pointColors.map((c) =>
+                          c === "#e11d48"
+                            ? "rgba(225, 29, 72, 0.72)"
+                            : "rgba(13, 148, 136, 0.72)",
+                        )
+                      : "rgba(13, 148, 136, 0.12)",
+                  pointBackgroundColor: pointColors,
+                  pointBorderColor: "#ffffff",
+                  pointBorderWidth: 2,
+                  pointRadius: 6,
+                  pointHoverRadius: 8,
+                  borderWidth: 2.5,
+                  tension: 0.25,
+                  fill: false,
+                  spanGaps: true,
+                  maxBarThickness: 56,
+                  borderRadius: chartType === "bar" ? 6 : 0,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              plugins: {
+                legend: { display: false },
+                title: {
+                  display: true,
+                  text: `${item.name}${unitLabel}${item.refText ? ` ｜ 正常參考值：${item.refText}` : ""}`,
+                  color: "#0f172a",
+                  font: { size: 13, weight: "700" },
+                  padding: { bottom: 12 },
+                },
+                tooltip: {
+                  backgroundColor: "rgba(15, 23, 42, 0.92)",
+                  padding: 10,
+                  callbacks: {
+                    label: (ctx) => {
+                      const idx = ctx.dataIndex;
+                      const raw = item.rawValues[idx] || "-";
+                      return ` 數值：${raw}${item.unit ? " " + item.unit : ""}`;
+                    },
+                    afterLabel: () => {
+                      const lines = [];
+                      if (item.refText) lines.push(` 正常值：${item.refText}`);
+                      if (item.trend) lines.push(` 趨勢：${item.trend}`);
+                      return lines;
+                    },
+                  },
+                },
+                pivotReferenceBand: {
+                  refRange: item.refRange,
+                  zeroBaseline: false,
+                },
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: {
+                    color: "#475569",
+                    font: { size: 12, weight: "500" },
+                  },
+                },
+                y: {
+                  suggestedMin: suggestedMinVal,
+                  suggestedMax: maxNum + pad,
+                  grid: { color: "rgba(226, 232, 240, 0.7)" },
+                  ticks: { color: "#64748b", font: { size: 11 } },
+                  title: {
+                    display: Boolean(item.unit),
+                    text: item.unit,
+                    color: "#64748b",
+                    font: { size: 11 },
+                  },
+                },
+              },
+            },
+            plugins: [pivotReferencePlugin],
+          });
+
+          // 更新單項數值摘要列
+          const validPairs = item.values
+            .map((v, i) => ({ val: v, raw: item.rawValues[i], date: dates[i] }))
+            .filter((p) => p.val !== null);
+          const firstP = validPairs[0];
+          const lastP = validPairs[validPairs.length - 1];
+          const diff = lastP.val - firstP.val;
+          const pct =
+            firstP.val !== 0
+              ? ((diff / Math.abs(firstP.val)) * 100).toFixed(1)
+              : null;
+          const diffSign = diff > 0 ? "+" : "";
+          const diffFormatted = Number.isInteger(diff) ? diff : diff.toFixed(2);
+          const pctText =
+            pct !== null ? ` (${diff > 0 ? "+" : ""}${pct}%)` : "";
+
+          summaryEl.innerHTML = `
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span><strong class="text-slate-800">${escapeHtml(item.name)}</strong>：${escapeHtml(firstP.raw)} → <strong class="text-slate-800">${escapeHtml(lastP.raw)}</strong> ${escapeHtml(item.unit)}</span>
+              <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono">變化 ${diffSign}${diffFormatted}${pctText}</span>
+              ${item.refText ? `<span class="text-emerald-700">正常區間：${escapeHtml(item.refText)}</span>` : ""}
+            </div>
+            ${item.trend ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${item.isAbnormal ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-teal-50 text-teal-700 border border-teal-200"}">AI 趨勢：${escapeHtml(item.trend)}</span>` : ""}
+          `;
+        } else {
+          // 多項比較模式：相對首次檢驗變化率 (%)
+          const selectedItems = pivotChartState.selectedCompareIndices
+            .map((idx) => pivotChartState.items[idx])
+            .filter(Boolean);
+
+          if (selectedItems.length === 0) {
+            summaryEl.innerHTML =
+              '<span class="text-amber-700 font-medium">請於上方點擊至少 1 個檢驗項目以顯示多指標變化率（%）比較圖。</span>';
+            return;
+          }
+
+          const datasets = selectedItems.map((item, dsIdx) => {
+            const color = CHART_PALETTE[dsIdx % CHART_PALETTE.length];
+            const firstValid = item.values.find((v) => v !== null && v !== 0);
+            const pctData = item.values.map((v) => {
+              if (v === null || firstValid === undefined) return null;
+              return Number(
+                (((v - firstValid) / Math.abs(firstValid)) * 100).toFixed(1),
+              );
+            });
+
+            return {
+              label: item.name,
+              data: pctData,
+              borderColor: color,
+              backgroundColor:
+                chartType === "bar" ? `${color}B8` : `${color}20`,
+              pointBackgroundColor: color,
+              pointBorderColor: "#ffffff",
+              pointBorderWidth: 1.5,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+              borderWidth: 2.2,
+              tension: 0.25,
+              fill: false,
+              spanGaps: true,
+              borderRadius: chartType === "bar" ? 5 : 0,
+              _metaItem: item,
+            };
+          });
+
+          pivotChartState.instance = new Chart(canvas.getContext("2d"), {
+            type: chartType,
+            data: {
+              labels: dates,
+              datasets: datasets,
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              plugins: {
+                legend: {
+                  display: true,
+                  position: "bottom",
+                  labels: {
+                    boxWidth: 10,
+                    usePointStyle: true,
+                    padding: 14,
+                    font: { size: 11 },
+                  },
+                },
+                title: {
+                  display: true,
+                  text: "多指標同步趨勢比較（以首次檢驗為 0% 基準之變化率 %）",
+                  color: "#0f172a",
+                  font: { size: 13, weight: "700" },
+                  padding: { bottom: 10 },
+                },
+                tooltip: {
+                  backgroundColor: "rgba(15, 23, 42, 0.92)",
+                  padding: 10,
+                  callbacks: {
+                    label: (ctx) => {
+                      const item = ctx.dataset._metaItem;
+                      const idx = ctx.dataIndex;
+                      const pctVal = ctx.parsed.y;
+                      const sign = pctVal > 0 ? "+" : "";
+                      const raw = item ? item.rawValues[idx] : "-";
+                      const unit = item && item.unit ? ` ${item.unit}` : "";
+                      return ` ${ctx.dataset.label}：${sign}${pctVal}%（原值 ${raw}${unit}）`;
+                    },
+                  },
+                },
+                pivotReferenceBand: {
+                  refRange: null,
+                  zeroBaseline: true,
+                },
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: {
+                    color: "#475569",
+                    font: { size: 12, weight: "500" },
+                  },
+                },
+                y: {
+                  grid: { color: "rgba(226, 232, 240, 0.7)" },
+                  ticks: {
+                    color: "#64748b",
+                    font: { size: 11 },
+                    callback: (v) => `${v > 0 ? "+" : ""}${v}%`,
+                  },
+                  title: {
+                    display: true,
+                    text: "相對首次變化率 (%)",
+                    color: "#64748b",
+                    font: { size: 11 },
+                  },
+                },
+              },
+            },
+            plugins: [pivotReferencePlugin],
+          });
+
+          summaryEl.innerHTML = `
+            <span>已選取 <strong class="text-slate-800">${selectedItems.length}</strong> 項指標進行跨單位同圖比較，滑鼠移至資料點可檢視原始數值與單位。</span>
+            <span class="text-slate-400">以最早有效檢驗值作為 0% 基準線</span>
+          `;
+        }
+      }
+
+      /**
+       * 匯出帶純白底色的趨勢圖 PNG 圖片
+       */
+      function downloadPivotChartPng() {
+        const canvas = document.getElementById("pivot-trend-canvas");
+        if (!canvas || !pivotChartState.instance) {
+          showToast("目前沒有可下載的趨勢圖。", "warning");
+          return;
+        }
+
+        const exportCanvas = document.createElement("canvas");
+        exportCanvas.width = canvas.width;
+        exportCanvas.height = canvas.height;
+        const ctx = exportCanvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        ctx.drawImage(canvas, 0, 0);
+
+        const dateVal = document.getElementById("dialogue-date").value;
+        const dateStr = dateVal
+          ? dateVal.replace(/-/g, "")
+          : new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const suffix =
+          pivotChartState.mode === "single"
+            ? (
+                pivotChartState.items[pivotChartState.selectedSingleIdx]
+                  ?.name || "單項"
+              ).replace(/[\\/:*?"<>|]/g, "_")
+            : "多項變化率比較";
+
+        const a = document.createElement("a");
+        a.href = exportCanvas.toDataURL("image/png", 1.0);
+        a.download = `檢驗趨勢圖_${suffix}_${dateStr}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast("已開始下載檢驗趨勢圖 (PNG)！", "success");
       }
 
       function copyReport() {
@@ -2560,7 +3637,7 @@
         }
         setTimeout(() => {
           window.print();
-        }, 100);
+        }, 120);
       }
 
       /* =========================================================
