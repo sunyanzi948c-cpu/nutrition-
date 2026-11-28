@@ -457,7 +457,7 @@
                     class="px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-none">
                     <option value="all">全部狀態</option>
                     <option value="success">僅看成功</option>
-                    <option value="error">僅看失敗／429</option>
+                    <option value="error">僅看失敗／429／503</option>
                   </select>
                 </div>
               </div>
@@ -1236,7 +1236,7 @@
               </p>
             </div>
 
-            <!-- 狀態 3：常駐錯誤／額度已滿提示畫面 -->
+            <!-- 狀態 3：常駐錯誤／503 壅塞／429 額度已滿提示畫面 -->
             <div
               id="error-state"
               class="hidden flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center">
@@ -1279,6 +1279,7 @@
               <div class="flex flex-wrap items-center justify-center gap-2.5">
                 <button
                   type="button"
+                  id="btn-error-retry"
                   onclick="handleAnalyze()"
                   class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-sm transition">
                   <svg
@@ -1334,7 +1335,7 @@
             （若日後重新「新增部署」產生新網址，直接修改此處即可）
          ========================================================= */
       const GAS_API_URL =
-        "https://script.google.com/macros/s/AKfycbxRVl0oyXj_xQ69t0ztSdgJ9rj5y2gjrORYsD4r39h0vkn2jPXvkVL1KjVGOmj9Y83vaw/exec";
+        "https://script.google.com/macros/s/AKfycbyzjl7eSJKt2Wuhi2ZBc2cg_bhJ1RXudWJ4YssP9YqIFTWy0CItx_ggL-jG9iKtAqjuNQ/exec";
 
       // 多份生化檢驗報告上傳限制
       const MAX_LAB_FILES = 5;
@@ -1794,6 +1795,9 @@
               "bg-slate-100 text-slate-700 border border-slate-200";
             if (st === "成功") {
               badgeClass = "bg-teal-50 text-teal-700 border border-teal-200";
+            } else if (st.includes("503") || st.includes("壅塞")) {
+              badgeClass =
+                "bg-orange-50 text-orange-700 border border-orange-200";
             } else if (st.includes("429") || st.includes("額度")) {
               badgeClass = "bg-amber-50 text-amber-700 border border-amber-200";
             } else if (st) {
@@ -2190,7 +2194,7 @@
       }
 
       /* =========================================================
-         5. 呼叫 GAS API 執行 AI 分析（支援多份檢驗報告與趨勢分析）
+         5. 呼叫 GAS API 執行 AI 分析（支援多份檢驗報告、503 與 429 專屬提示）
          ========================================================= */
       async function handleAnalyze() {
         if (appState.isAnalyzing) return;
@@ -2256,12 +2260,19 @@
             const errMsg =
               result.message || "AI 分析失敗，請稍後再試或聯繫系統管理員。";
             showErrorState(errMsg);
-            showToast(
-              isQuotaError(errMsg)
-                ? "AI 免費分析額度已達上限，詳情請見右側提示。"
-                : errMsg,
-              "error",
-            );
+            if (isOverloadError(errMsg)) {
+              showToast(
+                "AI 雲端伺服器目前尖峰壅塞（503），請稍候 10～30 秒後再重試。",
+                "overload",
+              );
+            } else if (isQuotaError(errMsg)) {
+              showToast(
+                "AI 免費分析額度已達上限，詳情請見右側提示。",
+                "warning",
+              );
+            } else {
+              showToast(errMsg, "error");
+            }
           }
         } catch (error) {
           console.error("Analyze error:", error);
@@ -2286,6 +2297,20 @@
         );
       }
 
+      function isOverloadError(message) {
+        const text = String(message || "").toLowerCase();
+        return (
+          text.includes("503") ||
+          text.includes("high demand") ||
+          text.includes("overloaded") ||
+          text.includes("unavailable") ||
+          text.includes("壅塞") ||
+          text.includes("尖峰") ||
+          text.includes("過載") ||
+          text.includes("塞車")
+        );
+      }
+
       function showErrorState(rawMessage, technicalDetail = "") {
         appState.currentMarkdown = "";
         document.getElementById("markdown-output").innerHTML = "";
@@ -2301,19 +2326,59 @@
         const descEl = document.getElementById("error-description");
         const detailBox = document.getElementById("error-detail-box");
         const detailText = document.getElementById("error-detail-text");
+        const retryBtn = document.getElementById("btn-error-retry");
 
-        if (isQuotaError(rawMessage)) {
+        const icons = {
+          overload:
+            '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+          quota:
+            '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+          general:
+            '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+        };
+
+        if (isOverloadError(rawMessage)) {
+          iconWrapper.className =
+            "w-16 h-16 rounded-2xl bg-orange-50 text-orange-600 border border-orange-200 flex items-center justify-center mb-4";
+          iconWrapper.innerHTML = icons.overload;
+          titleEl.textContent = "AI 雲端伺服器目前尖峰壅塞";
+          titleEl.className = "text-lg font-bold text-orange-700 mb-2";
+          descEl.textContent =
+            "Google Gemini 模型伺服器暫時滿載（HTTP 503），這不是系統故障，也不會扣除今日額度。建議您稍候 10～30 秒後，直接點擊下方「重新嘗試分析」。";
+          detailBox.className =
+            "hidden w-full max-w-md text-left bg-orange-50/60 border border-orange-200 rounded-xl p-3.5 mb-5 text-xs text-orange-900/90 leading-relaxed break-words";
+          if (retryBtn) {
+            retryBtn.className =
+              "inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl shadow-sm transition";
+          }
+        } else if (isQuotaError(rawMessage)) {
           iconWrapper.className =
             "w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mb-4";
+          iconWrapper.innerHTML = icons.quota;
           titleEl.textContent = "目前 AI 免費分析額度已達上限";
+          titleEl.className = "text-lg font-bold text-slate-800 mb-2";
           descEl.textContent =
             "短時間內使用過於頻繁，或今日的免費 AI 分析次數已全部用盡。建議您先稍候 1 分鐘後點擊下方「重新嘗試分析」；若仍顯示此訊息，代表今日免費額度已滿，請於隔日再試或聯繫管理員。";
+          detailBox.className =
+            "hidden w-full max-w-md text-left bg-amber-50/50 border border-amber-200 rounded-xl p-3.5 mb-5 text-xs text-slate-600 leading-relaxed break-words";
+          if (retryBtn) {
+            retryBtn.className =
+              "inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-sm transition";
+          }
         } else {
           iconWrapper.className =
             "w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mb-4";
+          iconWrapper.innerHTML = icons.general;
           titleEl.textContent = "AI 分析未能完成";
+          titleEl.className = "text-lg font-bold text-slate-800 mb-2";
           descEl.textContent =
             "系統在處理這筆資料時發生異常，請檢視下方系統回傳訊息後再重試，或聯繫管理員協助處理。";
+          detailBox.className =
+            "hidden w-full max-w-md text-left bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-5 text-xs text-slate-600 leading-relaxed break-words";
+          if (retryBtn) {
+            retryBtn.className =
+              "inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-sm transition";
+          }
         }
 
         const displayDetail = technicalDetail
@@ -2514,6 +2579,10 @@
             bg: "bg-rose-600 text-white border-rose-700",
             icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>',
           },
+          overload: {
+            bg: "bg-orange-500 text-white border-orange-600",
+            icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+          },
           warning: {
             bg: "bg-amber-500 text-white border-amber-600",
             icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>',
@@ -2525,7 +2594,10 @@
         };
 
         const style = styles[type] || styles.info;
-        const duration = type === "error" || type === "warning" ? 6000 : 3500;
+        const duration =
+          type === "error" || type === "warning" || type === "overload"
+            ? 6000
+            : 3500;
 
         toast.className = `pointer-events-auto flex items-start gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all duration-300 transform translate-x-4 opacity-0 ${style.bg}`;
         toast.innerHTML = `
