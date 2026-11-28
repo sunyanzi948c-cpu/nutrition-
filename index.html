@@ -1400,6 +1400,7 @@
         mode: "single", // 'single' | 'compare'
         chartType: "line", // 'line' | 'bar'
         filter: "all", // 'all' | 'abnormal'
+        showDataLabels: true, // 預設開啟資料點數值標籤，方便列印 PDF 判讀
         selectedSingleIdx: 0,
         selectedCompareIndices: [],
       };
@@ -2548,6 +2549,7 @@
          6B. 樞鈕篩選式互動趨勢圖引擎 (Chart.js)
              - 僅於偵測到 2 個以上檢驗日期且具可比對數值時顯示
              - 自動掛載於「跨時間點趨勢對照表」正下方
+             - 內建資料點數值標籤外掛，方便列印 PDF 直接判讀
          ========================================================= */
       function destroyPivotTrendChart() {
         if (pivotChartState.instance) {
@@ -2801,6 +2803,7 @@
         pivotChartState.mode = "single";
         pivotChartState.chartType = "line";
         pivotChartState.filter = "all";
+        pivotChartState.showDataLabels = true;
 
         // 預設選中第一個異常項目；若全部正常則選第一項
         const abnormalItems = extracted.items.filter((it) => it.isAbnormal);
@@ -2879,6 +2882,16 @@
                 </button>
               </div>
 
+              <!-- 數值標籤顯示開關（預設開啟） -->
+              <button
+                type="button"
+                id="pivot-btn-toggle-labels"
+                onclick="togglePivotDataLabels()"
+                title="切換圖表資料點數值標籤顯示"
+                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition">
+                <span>數值標籤：開</span>
+              </button>
+
               <!-- 下載 PNG -->
               <button
                 type="button"
@@ -2939,7 +2952,7 @@
 
           <!-- 圖表畫布區 -->
           <div class="mt-4 bg-white border border-slate-200/90 rounded-xl p-3 sm:p-4">
-            <div class="relative h-[260px] sm:h-[300px] w-full">
+            <div class="relative h-[270px] sm:h-[310px] w-full">
               <canvas id="pivot-trend-canvas"></canvas>
             </div>
           </div>
@@ -2954,6 +2967,23 @@
         extracted.tableEl.insertAdjacentElement("afterend", card);
 
         renderPivotItemPills();
+        renderPivotChartCanvas();
+      }
+
+      function togglePivotDataLabels() {
+        pivotChartState.showDataLabels = !pivotChartState.showDataLabels;
+        const btn = document.getElementById("pivot-btn-toggle-labels");
+        if (btn) {
+          if (pivotChartState.showDataLabels) {
+            btn.className =
+              "inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition";
+            btn.innerHTML = "<span>數值標籤：開</span>";
+          } else {
+            btn.className =
+              "inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-500 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition";
+            btn.innerHTML = "<span>數值標籤：關</span>";
+          }
+        }
         renderPivotChartCanvas();
       }
 
@@ -3146,7 +3176,7 @@
       }
 
       /**
-       * Chart.js 內建外掛：繪製單項正常參考區間帶／虛線，或多項模式 0% 基準線
+       * Chart.js 外掛 1：繪製單項正常參考區間帶／虛線，或多項模式 0% 基準線
        */
       const pivotReferencePlugin = {
         id: "pivotReferenceBand",
@@ -3243,6 +3273,181 @@
         },
       };
 
+      /**
+       * 繪製圓角矩形輔助函式（相容舊版瀏覽器與列印引擎）
+       */
+      function drawRoundedBadge(ctx, x, y, w, h, r) {
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + w - radius, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+        ctx.lineTo(x + w, y + h - radius);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+        ctx.lineTo(x + radius, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      }
+
+      /**
+       * Chart.js 外掛 2：在每個資料點／長條上方直接繪製高對比數值標籤（含防重疊調整）
+       */
+      const pivotValueLabelsPlugin = {
+        id: "pivotValueLabels",
+        afterDatasetsDraw(chart, _args, pluginOptions) {
+          if (!pluginOptions || !pluginOptions.enabled) return;
+
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return;
+
+          const mode = pluginOptions.mode || "single";
+          const chartType = chart.config.type;
+          const visibleDatasets = [];
+
+          chart.data.datasets.forEach((ds, dsIdx) => {
+            if (chart.isDatasetVisible(dsIdx)) {
+              visibleDatasets.push({
+                ds,
+                dsIdx,
+                meta: chart.getDatasetMeta(dsIdx),
+              });
+            }
+          });
+          if (visibleDatasets.length === 0) return;
+
+          ctx.save();
+          ctx.font = '600 11px "Inter", "Noto Sans TC", sans-serif';
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+
+          const labelCount = chart.data.labels ? chart.data.labels.length : 0;
+          const minGapY = 20;
+          const padX = 5;
+          const boxH = 18;
+
+          for (let dataIdx = 0; dataIdx < labelCount; dataIdx++) {
+            const labelsAtX = [];
+
+            for (const entry of visibleDatasets) {
+              const { ds, meta } = entry;
+              const val = ds.data[dataIdx];
+              const pt = meta.data[dataIdx];
+              if (val === null || val === undefined || !pt) continue;
+
+              // 多項變化率比較模式：第 1 個時間點若全部重疊於 0%，略過重複標籤避免擁擠
+              if (
+                mode === "compare" &&
+                visibleDatasets.length > 1 &&
+                dataIdx === 0 &&
+                val === 0
+              ) {
+                continue;
+              }
+
+              let text = "";
+              let textColor = "#0f172a";
+              let borderColor = "rgba(203, 213, 225, 0.9)";
+              let bgColor = "rgba(255, 255, 255, 0.94)";
+
+              if (mode === "single") {
+                const rawList = ds._rawValues || [];
+                text = rawList[dataIdx] || String(val);
+                const ptColor = Array.isArray(ds.pointBackgroundColor)
+                  ? ds.pointBackgroundColor[dataIdx]
+                  : "#0d9488";
+                if (ptColor === "#e11d48") {
+                  textColor = "#be123c";
+                  borderColor = "rgba(251, 113, 133, 0.7)";
+                  bgColor = "rgba(255, 241, 242, 0.95)";
+                } else {
+                  textColor = "#0f766e";
+                  borderColor = "rgba(94, 234, 212, 0.8)";
+                  bgColor = "rgba(240, 253, 250, 0.95)";
+                }
+              } else {
+                const sign = val > 0 ? "+" : "";
+                text = `${sign}${val}%`;
+                textColor = ds.borderColor || "#0f172a";
+                borderColor = ds.borderColor || "#cbd5e1";
+                bgColor = "rgba(255, 255, 255, 0.95)";
+              }
+
+              // 計算標籤初始座標（負值長條放於下方，其餘放於點／長條上方）
+              let targetY = pt.y - 16;
+              if (chartType === "bar" && val < 0) {
+                targetY = pt.y + 15;
+              }
+
+              labelsAtX.push({
+                x: pt.x,
+                y: targetY,
+                text: text,
+                textColor: textColor,
+                borderColor: borderColor,
+                bgColor: bgColor,
+              });
+            }
+
+            if (labelsAtX.length === 0) continue;
+
+            // 多條線於同一時間點時，依 Y 座標排序並自動錯開避免文字重疊
+            if (labelsAtX.length > 1 && chartType === "line") {
+              labelsAtX.sort((a, b) => a.y - b.y);
+              for (let k = 1; k < labelsAtX.length; k++) {
+                if (labelsAtX[k].y - labelsAtX[k - 1].y < minGapY) {
+                  labelsAtX[k].y = labelsAtX[k - 1].y + minGapY;
+                }
+              }
+              // 若推擠超出底部，整體往上微調
+              const overflowBottom =
+                labelsAtX[labelsAtX.length - 1].y +
+                boxH / 2 -
+                (chartArea.bottom - 2);
+              if (overflowBottom > 0) {
+                for (let k = 0; k < labelsAtX.length; k++) {
+                  labelsAtX[k].y -= overflowBottom;
+                }
+              }
+            }
+
+            for (const lbl of labelsAtX) {
+              const textW = ctx.measureText(lbl.text).width;
+              const boxW = textW + padX * 2;
+
+              // 邊界防裁切（確保貼近左右或頂部的標籤依然完整顯示）
+              const minCenterX = chartArea.left + boxW / 2 + 2;
+              const maxCenterX = chartArea.right - boxW / 2 - 2;
+              const drawX = Math.max(minCenterX, Math.min(maxCenterX, lbl.x));
+
+              const minCenterY = boxH / 2 + 4;
+              const maxCenterY = chartArea.bottom - boxH / 2 - 2;
+              const drawY = Math.max(minCenterY, Math.min(maxCenterY, lbl.y));
+
+              drawRoundedBadge(
+                ctx,
+                drawX - boxW / 2,
+                drawY - boxH / 2,
+                boxW,
+                boxH,
+                5,
+              );
+              ctx.fillStyle = lbl.bgColor;
+              ctx.fill();
+              ctx.lineWidth = 1;
+              ctx.strokeStyle = lbl.borderColor;
+              ctx.stroke();
+
+              ctx.fillStyle = lbl.textColor;
+              ctx.fillText(lbl.text, drawX, drawY + 0.5);
+            }
+          }
+
+          ctx.restore();
+        },
+      };
+
       function renderPivotChartCanvas() {
         const canvas = document.getElementById("pivot-trend-canvas");
         const summaryEl = document.getElementById("pivot-chart-summary");
@@ -3255,6 +3460,7 @@
 
         const dates = pivotChartState.dates;
         const chartType = pivotChartState.chartType;
+        const showLabels = pivotChartState.showDataLabels;
 
         if (pivotChartState.mode === "single") {
           const item =
@@ -3271,7 +3477,7 @@
             return rawFlag || outOfRange ? "#e11d48" : "#0d9488";
           });
 
-          // 計算合適的 Y 軸建議邊界，確保參考線與數值都完整呈現
+          // 計算合適的 Y 軸建議邊界，確保參考線與數值標籤皆完整呈現不被裁切
           const nums = item.values.filter((v) => v !== null);
           if (item.refRange) {
             if (item.refRange.min !== null) nums.push(item.refRange.min);
@@ -3281,10 +3487,10 @@
           const maxNum = Math.max(...nums);
           const pad =
             maxNum === minNum
-              ? Math.max(Math.abs(maxNum) * 0.15, 1)
-              : (maxNum - minNum) * 0.18;
+              ? Math.max(Math.abs(maxNum) * 0.2, 1)
+              : (maxNum - minNum) * 0.24;
           const suggestedMinVal =
-            minNum >= 0 ? Math.max(0, minNum - pad) : minNum - pad;
+            minNum >= 0 ? Math.max(0, minNum - pad * 0.7) : minNum - pad;
 
           const unitLabel = item.unit ? ` (${item.unit})` : "";
 
@@ -3296,6 +3502,7 @@
                 {
                   label: `${item.name}${unitLabel}`,
                   data: item.values,
+                  _rawValues: item.rawValues,
                   borderColor: "#0d9488",
                   backgroundColor:
                     chartType === "bar"
@@ -3322,15 +3529,18 @@
             options: {
               responsive: true,
               maintainAspectRatio: false,
+              layout: {
+                padding: { top: 8, right: 12, left: 4, bottom: 0 },
+              },
               interaction: { mode: "index", intersect: false },
               plugins: {
                 legend: { display: false },
                 title: {
                   display: true,
-                  text: `${item.name}${unitLabel}${item.refText ? ` ｜ 正常參考值：${item.refText}` : ""}`,
+                  text: `${item.name}${unitLabel}${item.refText ? `　｜　正常參考值：${item.refText}` : ""}`,
                   color: "#0f172a",
                   font: { size: 13, weight: "700" },
-                  padding: { bottom: 12 },
+                  padding: { bottom: 18 },
                 },
                 tooltip: {
                   backgroundColor: "rgba(15, 23, 42, 0.92)",
@@ -3352,6 +3562,10 @@
                 pivotReferenceBand: {
                   refRange: item.refRange,
                   zeroBaseline: false,
+                },
+                pivotValueLabels: {
+                  enabled: showLabels,
+                  mode: "single",
                 },
               },
               scales: {
@@ -3376,7 +3590,7 @@
                 },
               },
             },
-            plugins: [pivotReferencePlugin],
+            plugins: [pivotReferencePlugin, pivotValueLabelsPlugin],
           });
 
           // 更新單項數值摘要列
@@ -3415,14 +3629,17 @@
             return;
           }
 
+          const allPctValues = [0];
           const datasets = selectedItems.map((item, dsIdx) => {
             const color = CHART_PALETTE[dsIdx % CHART_PALETTE.length];
             const firstValid = item.values.find((v) => v !== null && v !== 0);
             const pctData = item.values.map((v) => {
               if (v === null || firstValid === undefined) return null;
-              return Number(
+              const p = Number(
                 (((v - firstValid) / Math.abs(firstValid)) * 100).toFixed(1),
               );
+              allPctValues.push(p);
+              return p;
             });
 
             return {
@@ -3445,6 +3662,10 @@
             };
           });
 
+          const minPct = Math.min(...allPctValues);
+          const maxPct = Math.max(...allPctValues);
+          const pctPad = Math.max((maxPct - minPct) * 0.25, 5);
+
           pivotChartState.instance = new Chart(canvas.getContext("2d"), {
             type: chartType,
             data: {
@@ -3454,6 +3675,9 @@
             options: {
               responsive: true,
               maintainAspectRatio: false,
+              layout: {
+                padding: { top: 8, right: 16, left: 4, bottom: 0 },
+              },
               interaction: { mode: "index", intersect: false },
               plugins: {
                 legend: {
@@ -3471,7 +3695,7 @@
                   text: "多指標同步趨勢比較（以首次檢驗為 0% 基準之變化率 %）",
                   color: "#0f172a",
                   font: { size: 13, weight: "700" },
-                  padding: { bottom: 10 },
+                  padding: { bottom: 16 },
                 },
                 tooltip: {
                   backgroundColor: "rgba(15, 23, 42, 0.92)",
@@ -3492,6 +3716,10 @@
                   refRange: null,
                   zeroBaseline: true,
                 },
+                pivotValueLabels: {
+                  enabled: showLabels,
+                  mode: "compare",
+                },
               },
               scales: {
                 x: {
@@ -3502,6 +3730,8 @@
                   },
                 },
                 y: {
+                  suggestedMin: minPct - pctPad,
+                  suggestedMax: maxPct + pctPad,
                   grid: { color: "rgba(226, 232, 240, 0.7)" },
                   ticks: {
                     color: "#64748b",
@@ -3517,18 +3747,18 @@
                 },
               },
             },
-            plugins: [pivotReferencePlugin],
+            plugins: [pivotReferencePlugin, pivotValueLabelsPlugin],
           });
 
           summaryEl.innerHTML = `
-            <span>已選取 <strong class="text-slate-800">${selectedItems.length}</strong> 項指標進行跨單位同圖比較，滑鼠移至資料點可檢視原始數值與單位。</span>
+            <span>已選取 <strong class="text-slate-800">${selectedItems.length}</strong> 項指標進行跨單位同圖比較，圖表直接顯示變化率（%）且滑鼠移至資料點可檢視原始數值。</span>
             <span class="text-slate-400">以最早有效檢驗值作為 0% 基準線</span>
           `;
         }
       }
 
       /**
-       * 匯出帶純白底色的趨勢圖 PNG 圖片
+       * 匯出帶純白底色的趨勢圖 PNG 圖片（含資料點數值標籤）
        */
       function downloadPivotChartPng() {
         const canvas = document.getElementById("pivot-trend-canvas");
